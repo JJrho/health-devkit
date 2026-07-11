@@ -5,14 +5,17 @@ import { PgQueueAdapter } from "@/adapters/pg-queue/pg-queue-adapter";
 /**
  * PG Queue 整合測試（AC-3／AC-4 的自動化驗證；連 Supabase 東京實庫）。
  * 需要 .env 的 DATABASE_URL；migration 需先套用（pnpm db:migrate）。
+ * 注意：執行期間 Worker 不得同時運行（會搶走測試工作）。
  */
 const hasDb = Boolean(process.env.DATABASE_URL);
 
 describe.skipIf(!hasDb)("PgQueueAdapter（整合，需 DATABASE_URL）", () => {
   let queue: PgQueueAdapter;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     queue = new PgQueueAdapter(getPool());
+    // 清掉先前執行殘留的測試工作，確保 claimNext 撿到的是本輪的
+    await getPool().query(`DELETE FROM queue_jobs WHERE type LIKE 'test-%'`);
   });
 
   afterAll(async () => {
@@ -49,6 +52,9 @@ describe.skipIf(!hasDb)("PgQueueAdapter（整合，需 DATABASE_URL）", () => {
     expect(afterFirstFail!.status).toBe("pending"); // 1 < 2，可重試
     expect(afterFirstFail!.retryCount).toBe(1);
     expect(afterFirstFail!.lastErrorName).toBe("Error");
+
+    // 移除本測試留下的 pending 工作，避免後續測試的 claimNext 撿到它
+    await getPool().query(`DELETE FROM queue_jobs WHERE id = $1`, [id]);
   });
 
   it("失敗路徑：達 max_retries 標記 failed（AC-4）", async () => {

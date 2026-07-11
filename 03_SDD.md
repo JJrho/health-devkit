@@ -123,7 +123,7 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 ## 15. 當前 Sprint 狀態
 
-尚未開工。Clarify 已收斂；WBS 三層拆解已完成（見 05_BACKLOG.md）；待 Sprint 1（E1-F1）DOR 通過即可啟動。
+Sprint 1（E1-F1 前半，技術棧 PoC）✅ 完成（2026-07-12）：Next.js＋TS＋Drizzle＋Supabase 東京 PG（pgvector）＋PG queue Worker＋測試框架端到端驗證通過，AC-1～6 全過，「首用技術棧」🔴 風險解除。骨架結構見 00_README 開發指南。下一個：Sprint 2（E1-F1 後半：CI＋Zeabur 部署＋OpenAPI 基座＋日誌 redaction 基線）DOR。
 
 ## 16. 相關文件索引
 

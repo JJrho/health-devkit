@@ -21,7 +21,7 @@ const vendorRestrictedPatterns = [
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: ["node_modules/**", ".next/**", "drizzle/**", "playwright-report/**", "test-results/**"],
+    ignores: ["node_modules/**", ".next/**", "drizzle/**", "playwright-report/**", "test-results/**", "next-env.d.ts"],
   },
   {
     files: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],

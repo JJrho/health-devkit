@@ -1,6 +1,6 @@
 # 專案地圖 Roadmap — 個人健康檢查管理平台
 
-> 最後更新：2026-07-11（WBS 拆解完成，Sprint 尚未啟動）
+> 最後更新：2026-07-12（Sprint 1 完成）
 
 ## 1. 一句話目標
 讓 50–65 歲使用者把多年健檢資料變成可追溯的趨勢與可停止的行動計畫。
@@ -9,23 +9,23 @@
 
 | Epic | 名稱 | 進度 | Feature 完成 | 預估 Sprint |
 |---|---|---|---|---|
-| E1 | 平台與信任基座 | ⚪⚪⚪⚪⚪ | 0/5 | 6 |
+| E1 | 平台與信任基座 | 🔵⚪⚪⚪⚪ | 0/5（E1-F1 前半完成） | 6 |
 | E2 | 健檢資料入庫管線 | ⚪⚪⚪⚪ | 0/4 | 5 |
 | E3 | 健康洞察呈現層 | ⚪⚪ | 0/2 | 2 |
 | E4 | 知識庫與串流問答引擎 | ⚪⚪⚪ | 0/3 | 4 |
 | E5 | 健康行動閉環 | ⚪⚪⚪⚪ | 0/4 | 5 |
 | E6 | 稽核基座與交付驗證包 | ⚪⚪ | 0/2 | 2 |
 
-整體進度：已完成 Sprint **0 / 24**（粗估 17，精估 24，差異說明見 05_BACKLOG）
+整體進度：已完成 Sprint **1 / 24**（粗估 17，精估 24，差異說明見 05_BACKLOG）
 
 ## 3. 目前所在位置
-- 進行中 Sprint：**Sprint 1（E1-F1 前半，技術棧 PoC）**——DOR 2026-07-12 通過
-- 前置已完成：Clarify C1–C22 收斂、WBS 三輪檢查通過、repo＋Supabase 東京＋Zeabur 決策
+- 最近完成：**Sprint 1（E1-F1 前半，技術棧 PoC）✅ 2026-07-12**——AC 全過，「首用技術棧」🔴 解除
+- 下一個：Sprint 2（E1-F1 後半：CI＋Zeabur 部署＋OpenAPI 基座＋日誌 redaction 基線）
 
 ## 4. 接下來三步
-1. `git init`＋GitHub repo 建立，開發包 v1.0.0 RATIFIED 初次提交
-2. Supabase 東京專案開通、Google OAuth 憑證、LLM API key 備妥（外部依賴）
-3. Sprint 1 DOR 核對 → 交 Claude Code 啟動
+1. Sprint 2 DOR → CI（GitHub Actions）＋Zeabur Web/Worker 兩 service 部署
+2. Sprint 3（E1-F2 帳號生命週期）——首個含健康平台業務邏輯的模組
+3. E2-F1 前備妥 Storage bucket；E1-F3 前備 Google OAuth 憑證
 
 ## 5. 目前最大風險與外部依賴
 1. 🔴 E2-F2 表格抽取準確率（PoC 排第 6–7 輪暴露）
