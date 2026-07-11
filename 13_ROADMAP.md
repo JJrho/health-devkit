@@ -19,8 +19,8 @@
 整體進度：已完成 Sprint **0 / 24**（粗估 17，精估 24，差異說明見 05_BACKLOG）
 
 ## 3. 目前所在位置
-- 進行中 Sprint：無（下一個：Sprint 1 ＝ E1-F1 前半，技術棧 PoC）
-- 前置已完成：Clarify C1–C22 收斂、WBS 三輪檢查通過
+- 進行中 Sprint：**Sprint 1（E1-F1 前半，技術棧 PoC）**——DOR 2026-07-12 通過
+- 前置已完成：Clarify C1–C22 收斂、WBS 三輪檢查通過、repo＋Supabase 東京＋Zeabur 決策
 
 ## 4. 接下來三步
 1. `git init`＋GitHub repo 建立，開發包 v1.0.0 RATIFIED 初次提交

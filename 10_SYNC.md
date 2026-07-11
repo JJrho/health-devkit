@@ -10,7 +10,7 @@
 憲法草案、SDD 精煉版草案、Clarify C1–C22、TDD 種子、KB 預載。
 
 ## 4. 下一步
-✅ git init＋GitHub repo；✅ Supabase 東京＋金鑰；✅ 受管平台 Zeabur。→ 現在：Sprint 1（E1-F1 技術棧 PoC）DOR＋建專案骨架（Next.js＋PG/Drizzle＋Adapter 介面群＋CI＋測試框架＋.env.example）。OAuth／LLM key／知識來源到對應 Feature 再備。
+✅ DOR 通過（2026-07-12，A1–A3 追認）→ 現在：Sprint 1 實作中（技術棧 PoC 驗證線，交付物與 AC 見 sprints/sprint-01-dor.md）。Sprint 2＝CI＋Zeabur 部署＋骨架收斂。OAuth／LLM key／知識來源到對應 Feature 再備。
 
 ## 5. 最高優先事項
 Sprint 1 技術棧 PoC；高風險 PoC 依序：E2-F2 解析管線（第 6–7 輪）、E4-F3 引用驗證。
