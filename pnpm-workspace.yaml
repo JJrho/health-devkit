@@ -1,0 +1,7 @@
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+# pnpm run 前的依賴狀態檢查子程序在部分受限環境會崩潰；依賴一致性由 lockfile 保證
+verifyDepsBeforeRun: false

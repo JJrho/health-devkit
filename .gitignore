@@ -1,6 +1,10 @@
 node_modules/
 .next/
 dist/
+test-results/
+playwright-report/
+coverage/
+*.tsbuildinfo
 .env
 .env.*.local
 .env.production

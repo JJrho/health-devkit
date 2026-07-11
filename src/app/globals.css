@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* 主色 #2563EB（SDD §5／上游 §25）；高齡優化：大字、高對比（SDD §5） */
+:root {
+  --color-primary: #2563eb;
+}
