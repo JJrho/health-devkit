@@ -1,6 +1,14 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 2 ✅ 完成（2026-07-12）——**E1-F1 整體完成（Feature 1/20）**。下一個：Sprint 3（E1-F2 帳號生命週期）DOR。
+> 目前狀態：Sprint 3 進行中（E1-F2 帳號生命週期；DOR ✅ 2026-07-12，A7–A10 追認）。
+
+## Sprint 3 — E1-F2：帳號生命週期模組 🔵
+
+- 期間：2026-07-12 開工
+- DOR：✅ 通過（sprints/sprint-03-dor.md；A7–A10 由 PO 追認）
+- 目標：Email 註冊/驗證/登入/忘記密碼/session/鎖定（C6–C9、C11）＋公開站 auth UI
+- 驗收：AC-1～AC-8（見 DOR §6）
+- 狀態：🔵 進行中
 
 ## Sprint 2 — E1-F1 後半：骨架收斂 ✅
 
