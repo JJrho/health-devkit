@@ -1,6 +1,14 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 1 ✅ 完成（2026-07-12）。下一個：Sprint 2（E1-F1 後半，骨架收斂）DOR。
+> 目前狀態：Sprint 2 進行中（E1-F1 後半，骨架收斂；DOR ✅ 2026-07-12，A4–A6 追認）。
+
+## Sprint 2 — E1-F1 後半：骨架收斂 🔵
+
+- 期間：2026-07-12 開工
+- DOR：✅ 通過（sprints/sprint-02-dor.md；A4–A6 由 PO 追認）
+- 目標：CI＋Zeabur 雙 service 部署＋API 基座（health/error envelope/request_id/OpenAPI 3.1）＋日誌 redaction 基線＋runbook
+- 驗收：AC-1～AC-6（見 DOR §6）
+- 狀態：🔵 進行中
 
 ## Sprint 1 — E1-F1 前半：技術棧 PoC 驗證線 ✅
 

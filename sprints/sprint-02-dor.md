@@ -1,6 +1,6 @@
 # Sprint 2 DOR — E1-F1 後半：骨架收斂（CI＋部署＋API 基座）
 
-> 狀態：**草案，待 PO 核對通過後開工**
+> 狀態：**✅ 通過（PO 2026-07-12：A4–A6 追認、DOR 通過）**
 > 對應：E1-F1「技術棧 PoC 與專案骨架」後半（05_BACKLOG E1 表）；SDD §10／§11／§12；憲法 §1／§4
 > 前一 Sprint：Sprint 1 ✅（技術棧 PoC 全過，07_SPRINT_LOG）
 
