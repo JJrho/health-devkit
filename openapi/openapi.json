@@ -6,6 +6,62 @@
     "description": "MVP API。錯誤一律回統一 error envelope（{ error: { code, message }, request_id }）。業務端點隨各 Feature 增補（SDD §4）。"
   },
   "paths": {
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register",
+        "summary": "註冊（含條款同意 C11；既有帳號回 409 EMAIL_EXISTS）",
+        "responses": {
+          "200": { "description": "已建立並寄出驗證信" },
+          "400": { "description": "缺欄位／未同意／弱密碼（ErrorEnvelope）" },
+          "409": { "description": "EMAIL_EXISTS（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "登入（C6 未驗證可登入；C7 鎖定回 429；設定 HttpOnly session cookie）",
+        "responses": {
+          "200": { "description": "登入成功，回 emailVerified 旗標" },
+          "401": { "description": "AUTH_INVALID_CREDENTIALS（統一訊息防枚舉）" },
+          "429": { "description": "AUTH_LOCKED（C7）" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "登出（撤銷 session＋清 cookie；冪等）",
+        "responses": { "200": { "description": "已登出" } }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "operationId": "forgotPassword",
+        "summary": "寄送重設信（C9；一律回成功防枚舉）",
+        "responses": { "200": { "description": "已受理" } }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "以 token 重設密碼（C9：30 分鐘、單次有效）",
+        "responses": {
+          "200": { "description": "已重設" },
+          "400": { "description": "RESET_TOKEN_INVALID（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "目前登入者（session 驗證＋滑動展延 C8）",
+        "responses": {
+          "200": { "description": "email 與 emailVerified" },
+          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",

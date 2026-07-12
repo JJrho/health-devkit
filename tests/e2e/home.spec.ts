@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * AC-2：首頁 HTTP 200、渲染、無 console error。
+ * AC-2（Sprint 2）＋首頁入口（Sprint 3）：200、渲染、無 console error。
  */
 test("首頁 smoke", async ({ page }) => {
   const consoleErrors: string[] = [];
@@ -15,9 +15,8 @@ test("首頁 smoke", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "個人健康檢查管理平台" }),
   ).toBeVisible();
-  await expect(page.getByTestId("skeleton-status")).toContainText(
-    "專案骨架運行中",
-  );
+  await expect(page.getByRole("link", { name: "建立帳號" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "登入" })).toBeVisible();
 
   expect(consoleErrors).toEqual([]);
 });
