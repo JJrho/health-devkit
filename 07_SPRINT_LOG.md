@@ -1,14 +1,37 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 2 進行中（E1-F1 後半，骨架收斂；DOR ✅ 2026-07-12，A4–A6 追認）。
+> 目前狀態：Sprint 2 ✅ 完成（2026-07-12）——**E1-F1 整體完成（Feature 1/20）**。下一個：Sprint 3（E1-F2 帳號生命週期）DOR。
 
-## Sprint 2 — E1-F1 後半：骨架收斂 🔵
+## Sprint 2 — E1-F1 後半：骨架收斂 ✅
 
-- 期間：2026-07-12 開工
+- 期間：2026-07-12（單日完成）
 - DOR：✅ 通過（sprints/sprint-02-dor.md；A4–A6 由 PO 追認）
-- 目標：CI＋Zeabur 雙 service 部署＋API 基座（health/error envelope/request_id/OpenAPI 3.1）＋日誌 redaction 基線＋runbook
-- 驗收：AC-1～AC-6（見 DOR §6）
-- 狀態：🔵 進行中
+- 目標：CI＋Zeabur 雙 service 部署＋API 基座＋日誌 redaction 基線＋runbook → **達成，E1-F1 Feature 結案**
+
+### 驗收結果（AC-1～AC-6 全數通過）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ GitHub Actions 綠勾（lint/typecheck/test，39 秒；A4：CI 不連 DB，整合測試自動跳過） |
+| AC-2 | ✅ https://health-devkit.zeabur.app 首頁與 /api/health 皆 200（公開網址實測） |
+| AC-3 | ✅ 本地 enqueue → **雲端** Worker 秒級撿起：echo completed、fail 重試 2/2 → failed；Zeabur 日誌僅白名單欄位 |
+| AC-4 | ✅ /api/health 200＋request_id（body 與 x-request-id header 一致）；未定義端點回統一 error envelope（雲端實測） |
+| AC-5 | ✅ redaction 測試：非白名單欄位剔除＋redactedFieldCount 標記、原始輸出無敏感值；requestId 貫穿 Web 與 Worker 雲端日誌 |
+| AC-6 | ✅ runbook 四節（docs/runbook.md）；OpenAPI 3.1 格式驗證測試通過（openapi/openapi.json） |
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤／回歸測試通過（Vitest 12/12、Playwright 3/3、CI 綠）
+- [x] 肉眼驗收：公開網址可開
+- [x] 部署基礎設施：Zeabur 專案 6a531b1bb421dcaba7ae2578（Linode Tokyo 專屬伺服器）；service ID 記於 CLAUDE.md；push-to-deploy 已驗證
+- [x] 修正皆反映於規格與文件；SDD §15／ROADMAP／SYNC／KB 已更新
+- [x] 假設 A4–A6 已於 DOR 追認；本輪無新增 A 編號
+- [x] 追加 DOD：日誌掃描 ✅（redaction 基線＋雲端日誌實測）；LLM Streaming／權限鏈 N/A
+- [x] 下一步明確：Sprint 3（E1-F2）DOR
+
+### 本輪事件與教訓
+1. Zeabur 的 GitHub App 授權與 Supabase 的 GitHub 整合是兩回事，需分別授權（PO 已加 health-devkit）
+2. 部署目標拍板：現有 Linode Tokyo 專屬伺服器（1C/2GB，與 Supabase 同城，不額外花錢）；資源吃緊時再升級
+3. Zeabur 機密設定流程確立：值由腳本從本機 .env 直送 CLI、輸出遮蔽，不經對話（A6 落地）
+4. tsx 移入 dependencies（Worker 生產執行期需要）
 
 ## Sprint 1 — E1-F1 前半：技術棧 PoC 驗證線 ✅
 

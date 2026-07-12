@@ -1,19 +1,19 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1 ✅ 完成（2026-07-12）**：技術棧 PoC 全線驗證通過（詳 07_SPRINT_LOG）。⚠️ 專案已搬遷至 `C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004，中文路徑不可用）。外部依賴：Supabase 東京 ✅（.env 已可連線）；Zeabur Tokyo 已拍板 ✅；Google OAuth／LLM key／首批知識來源依 Sprint 順序後補。
+開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1＋2 ✅（2026-07-12）＝E1-F1 Feature 結案（1/20）**：技術棧驗證＋CI＋Zeabur 雙 service 上線（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器；ID 見 CLAUDE.md）。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
 
 ## 2. 目前版本
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格 v1.2.2；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
-Sprint 1（E1-F1 前半）：Next.js＋Drizzle＋pgvector migration（可回滾）＋五 Adapter 介面＋PG Queue／Worker＋Vitest／Playwright，AC-1～6 全過。
+Sprint 2（E1-F1 後半）：CI 綠＋Zeabur web/worker 上線＋/api/health＋error envelope/request_id＋OpenAPI 3.1 起頭＋logger redaction＋runbook，AC-1～6 全過（含雲端實測）。
 
 ## 4. 下一步
-Sprint 2（E1-F1 後半）DOR：CI（GitHub Actions）＋Zeabur Web/Worker 兩 service 部署＋OpenAPI 3.1 基座＋error envelope/request_id＋結構化日誌 redaction 基線＋runbook 起頭。OAuth／LLM key／知識來源到對應 Feature 再備。
+Sprint 3（E1-F2 帳號生命週期）DOR：Email 註冊/驗證/登入/忘記密碼/session/鎖定（C6–C9、C11 條款同意）；AuthAdapter 之 Supabase 實作。
 
 ## 5. 最高優先事項
-Sprint 2 骨架收斂；高風險 PoC 依序：E2-F2 解析管線（第 6–7 輪）、E4-F3 引用驗證。
+E1-F2 → E1-F4（四層權限鏈，安全基線 🔴）；高風險 PoC 依序：E2-F2 解析管線、E4-F3 引用驗證。
 
 ## 6. 不可破壞的原則
 憲法 §3 醫療安全全列；未確認資料不入正式分析；健康內容不入日誌（Worker 白名單日誌已落地，KB 見 07 記錄）。

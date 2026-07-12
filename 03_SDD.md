@@ -123,7 +123,7 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 ## 15. 當前 Sprint 狀態
 
-Sprint 1（E1-F1 前半，技術棧 PoC）✅ 完成（2026-07-12）：Next.js＋TS＋Drizzle＋Supabase 東京 PG（pgvector）＋PG queue Worker＋測試框架端到端驗證通過，AC-1～6 全過，「首用技術棧」🔴 風險解除。骨架結構見 00_README 開發指南。下一個：Sprint 2（E1-F1 後半：CI＋Zeabur 部署＋OpenAPI 基座＋日誌 redaction 基線）DOR。
+**E1-F1 整體完成（2026-07-12，Sprint 1＋2，Feature 1/20）**：技術棧 PoC 全過＋骨架收斂——CI 綠、Zeabur 雙 service 上線（https://health-devkit.zeabur.app）、API 基座（/api/health＋error envelope＋request_id＋OpenAPI 3.1 起頭）、日誌 redaction 基線、runbook。部署資訊見 CLAUDE.md；細節見 07_SPRINT_LOG。下一個：Sprint 3（E1-F2 帳號生命週期）DOR。
 
 ## 16. 相關文件索引
 

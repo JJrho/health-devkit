@@ -36,5 +36,10 @@
 - 內容：`claimNext` 撿「最舊的 pending」——前一測試留下的 pending 工作會被後一測試撿走造成誤判。修法：beforeAll 清殘留、各測試收尾清理自己的工作；且測試執行期間 Worker 不得同時運行
 - 未來避免：E2-F2 擴充佇列時沿用此隔離模式
 
+## KB-008 Zeabur 部署形態與機密流程（Sprint 2 定型）
+- 類型：部署決策＋接入教訓（2026-07-12）
+- 內容：(1) 部署於 PO 現有 Linode Tokyo 專屬伺服器（1C/2GB，與 Supabase 同城；資源吃緊再升級）；(2) 同 repo 兩 service：web（自動偵測 Next.js）＋worker（zbpack.worker.json 指定啟動）；(3) Zeabur 的 GitHub App 授權與 Supabase 的 GitHub 整合是**兩個獨立授權**；(4) 機密設定：腳本從本機 .env 讀值直送 CLI、輸出遮蔽——金鑰永不經對話；(5) 專案／service ID 記於 CLAUDE.md
+- 未來避免：Worker 的執行期依賴（如 tsx）必須放 dependencies 而非 devDependencies
+
 ## 新紀錄模板
 （依方法論 13.2 節）
