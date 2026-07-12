@@ -17,11 +17,13 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.0",
     "next": "^15.3.0",
     "pg": "^8.16.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
@@ -34,14 +36,12 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",
-    "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.0",
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.3.0",
     "jsdom": "^26.1.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
   },

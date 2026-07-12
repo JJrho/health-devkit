@@ -1,0 +1,4 @@
+{
+  "build_command": "pnpm install --frozen-lockfile",
+  "start_command": "pnpm worker"
+}

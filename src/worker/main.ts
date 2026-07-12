@@ -16,12 +16,14 @@ async function tick(queue: PgQueueAdapter): Promise<void> {
   const job = await queue.claimNext();
   if (!job) return;
 
+  // 每次工作執行一個 requestId，與 Web 端日誌同欄位貫穿（Sprint 2 AC-5）
+  const requestId = crypto.randomUUID();
   const startedAt = Date.now();
   const handler = jobHandlers[job.type];
 
   if (!handler) {
     await queue.fail(job.id, "UnknownJobType");
-    logger.warn("未註冊的工作類型", { jobId: job.id, jobType: job.type });
+    logger.warn("未註冊的工作類型", { requestId, jobId: job.id, jobType: job.type });
     return;
   }
 
@@ -29,6 +31,7 @@ async function tick(queue: PgQueueAdapter): Promise<void> {
     await handler(job);
     await queue.complete(job.id);
     logger.info("工作完成", {
+      requestId,
       jobId: job.id,
       jobType: job.type,
       status: "completed",
@@ -38,6 +41,7 @@ async function tick(queue: PgQueueAdapter): Promise<void> {
     const errorName = error instanceof Error ? error.constructor.name : "UnknownError";
     await queue.fail(job.id, errorName);
     logger.error("工作失敗", {
+      requestId,
       jobId: job.id,
       jobType: job.type,
       status: "failed-or-retrying",

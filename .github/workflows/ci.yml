@@ -1,0 +1,35 @@
+# CI（Sprint 2 AC-1）：lint＋typecheck＋單元測試。
+# A4：CI 不連正式 DB——DATABASE_URL 不提供，佇列整合測試自動跳過（skipIf）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        # 版本取自 package.json 的 packageManager 欄位
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: 單元測試
+        run: pnpm test

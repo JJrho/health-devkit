@@ -1,24 +1,60 @@
 /**
- * 結構化日誌（Sprint 1 最小版；Sprint 2 收斂為完整 redaction 基線）。
+ * 結構化日誌＋redaction 基線（Sprint 2 AC-5）。
  * 憲法 §4：健康內容、完整 prompt、AI 回答、signed URL、token 一律不得入日誌。
- * 因此本 logger 的介面「不接受任意物件」——只接受白名單欄位，從結構上杜絕誤傳 payload。
+ *
+ * 兩道防線：
+ * 1. 型別層：介面只接受 SafeFields 白名單欄位。
+ * 2. 執行期：任何繞過型別（JS 呼叫、as any）傳入的非白名單欄位，
+ *    一律剔除並以 redactedFieldCount 標記，值永不輸出。
  */
 
-type SafeFields = {
-  jobId?: string;
-  jobType?: string;
-  status?: string;
-  retryCount?: number;
-  durationMs?: number;
-  errorName?: string; // 只記錯誤類別名，不記完整訊息內容
-};
+const SAFE_FIELD_WHITELIST = [
+  "requestId",
+  "jobId",
+  "jobType",
+  "status",
+  "retryCount",
+  "durationMs",
+  "errorName",
+  "path",
+  "method",
+  "httpStatus",
+] as const;
+
+export type SafeFields = Partial<{
+  requestId: string;
+  jobId: string;
+  jobType: string;
+  status: string;
+  retryCount: number;
+  durationMs: number;
+  /** 只記錯誤類別名，不記完整訊息內容 */
+  errorName: string;
+  path: string;
+  method: string;
+  httpStatus: number;
+}>;
+
+function redact(fields: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = {};
+  let redactedFieldCount = 0;
+  for (const [key, value] of Object.entries(fields)) {
+    if ((SAFE_FIELD_WHITELIST as readonly string[]).includes(key)) {
+      safe[key] = value;
+    } else {
+      redactedFieldCount += 1; // 只計數，鍵與值皆不輸出
+    }
+  }
+  if (redactedFieldCount > 0) safe.redactedFieldCount = redactedFieldCount;
+  return safe;
+}
 
 function emit(level: "info" | "warn" | "error", message: string, fields?: SafeFields) {
   const entry = {
     level,
     time: new Date().toISOString(),
     message,
-    ...fields,
+    ...redact((fields ?? {}) as Record<string, unknown>),
   };
    
   console[level === "info" ? "log" : level](JSON.stringify(entry));
