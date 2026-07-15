@@ -7,7 +7,9 @@
 - 外部服務一律經 `src/adapters/` 介面；LLM 輸出只准 Streaming
 - 日誌走 `src/lib/logger.ts` 白名單 redaction；健康內容／金鑰永不入日誌與對話
 - 金鑰只存本機 `.env` 與 Zeabur 變數；`.env.example` 只放佔位符
-- **絕不對含機密的檔案（`.env` 等）使用 Read 或任何會印出完整內容的工具／指令**（含 `zeabur variable list`）。一律用腳本讀值進變數、只回報布林/長度/結構是否正確。Sprint 3 曾因違反此規則三度洩漏機密，教訓見 KB-009~014、07_SPRINT_LOG
+- **絕不對含機密的檔案（`.env` 等）使用 Read 或任何會印出完整內容的工具／指令**（含 `zeabur variable list`）。一律用腳本讀值進變數、只回報布林/長度/結構是否正確。Sprint 3 曾因違反此規則三度洩漏機密，教訓見 KB-009~017、07_SPRINT_LOG
+- PowerShell 讀 `.env`（含 CJK 註解）務必加 `-Encoding UTF8`，否則會誤判特定行不存在（KB-015）
+- `zeabur service exec` 無法傳遞帶減號旗標給容器內指令（`sh -c`／`--eval` 皆會報錯）；要在容器內跑診斷，改執行專案內既有、不需旗標的腳本（KB-016）
 
 ## Zeabur 維運鐵則（Sprint 3 教訓，KB-013/014）
 - 輪替密碼／金鑰時**一次到位**：同步更新所有會連線的 service（web＋worker）再重啟，不要分批多次改——分批會讓舊 pod 用舊密碼連線失敗累積，觸發 Supabase pooler 斷路器（`ECIRCUITBREAKER`），之後即使密碼正確、新連線仍會被暫時封鎖，症狀與密碼錯誤完全相同

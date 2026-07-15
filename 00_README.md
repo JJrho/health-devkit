@@ -27,6 +27,8 @@
 5. **啟動**：`pnpm dev`（Web，http://localhost:3000）；`pnpm worker`（背景 Worker，另開終端）
 6. **測試**：`pnpm test`（單元＋整合）；`pnpm test:e2e`（Playwright，首次先 `pnpm exec playwright install chromium`）；`pnpm typecheck`／`pnpm lint`
 
+> ⚠️ 若曾跑過 `pnpm build`／`pnpm start`（例如重現正式環境行為做診斷），結束後**務必**清 `rm -rf .next` 並確認 3000 埠已釋放，否則切回 `pnpm dev`／`pnpm test:e2e` 可能出現假性 404 或逾時（KB-017）。
+
 ### 程式結構（C1：單一 app＋領域資料夾）
 - `src/app/` — Next.js App Router（頁面與 API）
 - `src/adapters/` — 外部服務介面群（憲法 §1）＋ `pg-queue/` 實作

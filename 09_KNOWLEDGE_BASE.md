@@ -73,7 +73,8 @@
 - 類型：維運教訓（Sprint 3，2026-07-15，實測觸發）
 - 內容：`health-devkit` 的 web＋worker 與另一專案 `yihan-devkit` 共用同一台 Linode Tokyo 1C/2GB 專屬伺服器。穩態下 web≈315MB、worker≈250-300MB，伺服器整體使用率平時已達七成以上。**同時重啟 web 與 worker** 會讓舊 pod（尚未關閉）與新 pod（正在啟動）短暫並存，記憶體需求瞬間翻倍，觸發 Kubernetes MemoryPressure 逐出（evict）、進而陷入「重排程→再逐出」的循環，導致服務短暫中斷（502）。
 - 修法：本次靜待數分鐘後系統自行恢復穩定，未再介入。
-- 未來避免：**需要重啟多個 service 時，一次只重啟一個、確認穩定（health 端點 200）後再重啟下一個**；日誌輪替／密碼輪替等操作若需要重啟，比照辦理。長期若此類事件頻繁發生，考慮升級伺服器規格。
+- 未來避免：**需要重啟多個 service 時，一次只重啟一個、確認穩定（health 端點 200）後再重啟下一個**；日誌輪替／密碼輪替等操作若需要重啟，比照辦理。
+- **後續**：PO 已於 2026-07-15 將伺服器由 1C/2GB 升級為 **2C/4GB**，穩態使用率從七成以上降至約四成，問題根治。升級後單次 `service exec` 額外程序仍可能在舊規格下被 OOM 砍掉（見 KB-016），新規格下未再重現。
 
 ## KB-014 Supabase pooler 斷路器：認證失敗次數過多會暫時封鎖新連線（含正確密碼）
 - 類型：維運教訓（Sprint 3，2026-07-15，長時間 DB 連線失敗後才定位）
@@ -81,6 +82,24 @@
 - 診斷關鍵：`service exec` 進容器直接跑本專案的 `verify-db.ts`（見 scripts/），若真正原因是斷路器，會看到明確的 `(ECIRCUITBREAKER) too many authentication failures, new connections are temporarily blocked`，而非單純的密碼錯誤訊息。
 - 修法：**停手等待冷卻**（無法主動解除，需等 Supabase 端計時器過期，實務約 10-15 分鐘），冷卻後乾淨測一次即可恢復。
 - 未來避免：**輪替密碼／金鑰時，務必一次到位、同步更新所有會連線的 service（web＋worker）再重啟，不要分批多次改**；每一輪失敗的連線嘗試都在累積斷路器計數，分批修正只會讓情況更糟。若連線失敗訊息長時間不隨密碼修正而改善，優先懷疑斷路器而非密碼本身，直接用 `service exec` 執行驗證腳本查看完整錯誤訊息。
+
+## KB-015 PowerShell Get-Content 對含 CJK 註解的 .env 檔案編碼誤判
+- 類型：環境教訓（Sprint 3，2026-07-15，兩度踩雷）
+- 內容：`.env` 檔案內含中文（CJK）註解時，PowerShell 的 `Get-Content`（不指定編碼）會誤判整體編碼，導致：(1) 終端機顯示亂碼；(2) 更嚴重的是，`-match '^KEY='` 這類 regex 結構檢查會對**特定行**（通常是中文註解正下方那一行）判斷失敗，回報「這個 key 不存在」，即使該行實際存在且內容正確。此現象與 `Read` 工具（正確解碼 UTF-8）的結果不一致，曾造成「明明填了 SUPABASE_SERVICE_ROLE_KEY 卻讀不到」的誤診斷，浪費大量時間排查。
+- 修法：`Get-Content` 一律加上 **`-Encoding UTF8`** 明確指定編碼，才能正確逐行解析。
+- 未來避免：任何要用 PowerShell 讀取／檢查 `.env` 或其他含中文內容檔案的腳本，一律加 `-Encoding UTF8`；若結果與預期不符且懷疑是編碼問題，改用能正確解碼的方式重新確認結構（而非直接假設值不存在）。
+
+## KB-016 Zeabur CLI 的 `service exec` 無法傳遞帶減號的旗標給容器內指令
+- 類型：工具限制（Sprint 3，2026-07-15）
+- 內容：`npx zeabur@latest service exec --id <id> -- sh -c "echo hello"` 這類指令，即使用 `--` 分隔，CLI 仍會把 `-c`（或 `--eval` 等任何以減號開頭的 token）誤判為自己的旗標，回報 `unknown shorthand flag`。純位置參數（如 `ls`、`env`、`pnpm exec tsx scripts/foo.ts`）不受影響。
+- 修法：需要在容器內執行複合指令／inline script 時，改成執行**專案內已存在、不需任何旗標的腳本**（例如 `pnpm exec tsx scripts/verify-db.ts`），而非嘗試用 `sh -c`／`node --eval` 現場組指令。
+- 未來避免：診斷 Zeabur 容器內狀態時，先寫一支不需旗標的 tsx 診斷腳本（放 `scripts/`，用完即刪），再用 `service exec` 執行；不要嘗試用 shell 內嵌指令。
+
+## KB-017 本機 pnpm build/start 診斷後殘留 .next 與殭屍 port，會讓後續 dev/e2e 出現假性 404
+- 類型：本機環境教訓（Sprint 3，2026-07-15）
+- 內容：為了重現 Zeabur production build 的行為，本機跑過 `pnpm build && pnpm start` 之後，若沒有徹底清乾淨就切回 `pnpm dev` 或 `pnpm test:e2e`，會出現兩種假性故障：(1) 殘留的 `.next`（production build 產物）與 dev 模式的內部結構不相容，導致明明存在的頁面（如 `/reset-password`）回報 404；(2) `pnpm start` 起的 process 沒被完全終止、占用 3000 埠，導致 Playwright 的 dev server 改用 3003 卻仍等待 3000 而逾時失敗。兩者症狀都容易誤判為程式碼壞掉。
+- 修法：`rm -rf .next test-results playwright-report`；用 PowerShell `Get-NetTCPConnection -LocalPort 3000 | Stop-Process` 確實清掉佔用 3000 的殭屍程序（Bash 的 `pkill` 在此 Windows 環境下對這類程序不可靠）；之後再重跑 `pnpm dev`／`pnpm test:e2e`。
+- 未來避免：任何一次本機 production build 診斷（`pnpm build`／`pnpm start`）結束後，**立即**清 `.next` 並確認 3000 埠已釋放，才能切回一般開發／測試流程。
 
 ## 新紀錄模板
 （依方法論 13.2 節）
