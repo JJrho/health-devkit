@@ -1,11 +1,10 @@
-import type { NextRequest } from "next/server";
-import { apiError, apiOk, newRequestId } from "@/lib/api-response";
+import { apiError, apiOk } from "@/lib/api-response";
+import { withErrorEnvelope } from "@/lib/api-handler";
 import { logger } from "@/lib/logger";
 import { getAuthService } from "@/modules/auth";
 
 /** POST /api/auth/register（AC-1／AC-2；C11） */
-export async function POST(request: NextRequest) {
-  const requestId = newRequestId();
+export const POST = withErrorEnvelope(async (request, requestId) => {
   let body: {
     email?: string;
     password?: string;
@@ -56,8 +55,15 @@ export async function POST(request: NextRequest) {
         );
       case "WEAK_PASSWORD":
         return apiError("WEAK_PASSWORD", "密碼長度至少需要 8 個字元。", 400, requestId);
+      case "INVALID_EMAIL":
+        return apiError(
+          "INVALID_EMAIL",
+          "這個 Email 地址格式看起來不正確，請確認後再試一次。",
+          400,
+          requestId,
+        );
     }
   }
 
   return apiOk({ status: "registered" }, requestId);
-}
+});

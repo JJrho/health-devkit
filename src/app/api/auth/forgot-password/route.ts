@@ -1,10 +1,9 @@
-import type { NextRequest } from "next/server";
-import { apiError, apiOk, newRequestId } from "@/lib/api-response";
+import { apiError, apiOk } from "@/lib/api-response";
+import { withErrorEnvelope } from "@/lib/api-handler";
 import { getAuthService } from "@/modules/auth";
 
 /** POST /api/auth/forgot-password（AC-6；C9）：一律回成功訊息（防枚舉） */
-export async function POST(request: NextRequest) {
-  const requestId = newRequestId();
+export const POST = withErrorEnvelope(async (request, requestId) => {
   let body: { email?: string };
   try {
     body = await request.json();
@@ -20,4 +19,4 @@ export async function POST(request: NextRequest) {
     `${request.nextUrl.origin}/reset-password`,
   );
   return apiOk({ status: "reset-email-sent" }, requestId);
-}
+});

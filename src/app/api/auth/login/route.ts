@@ -1,12 +1,11 @@
-import type { NextRequest } from "next/server";
-import { apiError, apiOk, newRequestId } from "@/lib/api-response";
+import { apiError, apiOk } from "@/lib/api-response";
+import { withErrorEnvelope } from "@/lib/api-handler";
 import { logger } from "@/lib/logger";
 import { getAuthService } from "@/modules/auth";
 import { setSessionCookie } from "@/lib/session-cookie";
 
 /** POST /api/auth/login（AC-3／AC-4／AC-5；C6／C7／C8） */
-export async function POST(request: NextRequest) {
-  const requestId = newRequestId();
+export const POST = withErrorEnvelope(async (request, requestId) => {
   let body: { email?: string; password?: string };
   try {
     body = await request.json();
@@ -53,4 +52,4 @@ export async function POST(request: NextRequest) {
   );
   setSessionCookie(response, result.token, result.expiresAt);
   return response;
-}
+});

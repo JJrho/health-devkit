@@ -6,13 +6,15 @@
 export interface AuthAdapter {
   /**
    * 註冊：建立憑證並觸發驗證信。
-   * Email 已存在時回 "EMAIL_EXISTS"（SDD §4.1：註冊側明確提示既有帳號）。
+   * Email 已存在時回 "EMAIL_EXISTS"（SDD §4.1：註冊側明確提示既有帳號）；
+   * Email 格式不合法時回 "INVALID_EMAIL"（可預期的使用者輸入錯誤，不應以例外處理）。
+   * 其餘非預期錯誤（服務中斷等）才拋出例外，由呼叫端當系統錯誤處理。
    */
   register(
     email: string,
     password: string,
     verifyRedirectTo: string,
-  ): Promise<{ userId: string } | "EMAIL_EXISTS">;
+  ): Promise<{ userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL">;
 
   /** 驗證密碼；失敗回 null（呼叫端統一錯誤，不洩漏存在性） */
   verifyPassword(

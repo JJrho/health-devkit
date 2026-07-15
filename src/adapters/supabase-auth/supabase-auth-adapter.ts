@@ -29,13 +29,19 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     email: string,
     password: string,
     verifyRedirectTo: string,
-  ): Promise<{ userId: string } | "EMAIL_EXISTS"> {
+  ): Promise<{ userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL"> {
     const { data, error } = await this.anon.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: verifyRedirectTo },
     });
-    if (error) throw new Error(`註冊失敗：${error.code ?? "unknown"}`);
+    if (error) {
+      // 可預期的使用者輸入錯誤：回結構化結果，不當例外處理
+      if (error.code === "email_address_invalid" || error.code === "validation_failed") {
+        return "INVALID_EMAIL";
+      }
+      throw new Error(`註冊失敗：${error.code ?? "unknown"}`);
+    }
     if (!data.user) throw new Error("註冊失敗：無使用者資料回傳");
 
     // Email 已存在時，Supabase 回傳成功但 identities 為空陣列（防枚舉設計）

@@ -17,7 +17,10 @@ export const CONSENT_VERSION = "0.1-placeholder-2026-07-12";
 
 export type RegisterResult =
   | { ok: true; userId: string }
-  | { ok: false; code: "EMAIL_EXISTS" | "CONSENT_REQUIRED" | "WEAK_PASSWORD" };
+  | {
+      ok: false;
+      code: "EMAIL_EXISTS" | "CONSENT_REQUIRED" | "WEAK_PASSWORD" | "INVALID_EMAIL";
+    };
 
 export type LoginResult =
   | { ok: true; token: string; expiresAt: Date; emailVerified: boolean }
@@ -52,6 +55,7 @@ export class AuthService {
       input.verifyRedirectTo,
     );
     if (result === "EMAIL_EXISTS") return { ok: false, code: "EMAIL_EXISTS" };
+    if (result === "INVALID_EMAIL") return { ok: false, code: "INVALID_EMAIL" };
 
     const db = getDb();
     await db.insert(users).values({ id: result.userId, email });

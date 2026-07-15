@@ -1,14 +1,13 @@
 import { eq } from "drizzle-orm";
-import type { NextRequest } from "next/server";
-import { apiError, apiOk, newRequestId } from "@/lib/api-response";
+import { apiError, apiOk } from "@/lib/api-response";
+import { withErrorEnvelope } from "@/lib/api-handler";
 import { getDb } from "@/db/client";
 import { users } from "@/db/schema";
 import { validateSession } from "@/modules/auth";
 import { readSessionToken, setSessionCookie } from "@/lib/session-cookie";
 
 /** GET /api/auth/me（AC-3／AC-4／AC-7）：session 驗證＋滑動展延＋C6 閘狀態 */
-export async function GET(request: NextRequest) {
-  const requestId = newRequestId();
+export const GET = withErrorEnvelope(async (request, requestId) => {
   const token = readSessionToken(request);
   if (!token) return apiError("AUTH_REQUIRED", "請先登入", 401, requestId);
 
@@ -31,4 +30,4 @@ export async function GET(request: NextRequest) {
     setSessionCookie(response, token, session.slidExpiresAt); // cookie 隨 session 一起滑動
   }
   return response;
-}
+});

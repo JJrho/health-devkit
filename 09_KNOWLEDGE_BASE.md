@@ -47,5 +47,11 @@
 - 修法：改用不依賴 Admin API 的官方標準流程——(1) 查重複 Email：`signUp()` 對已存在帳號回傳 `identities: []`（防枚舉設計，直接可判斷）；(2) 重設密碼：`verifyOtp()` 成功即取得 session，同一 client 直接 `updateUser({password})`，不必經 admin。
 - 未來避免：本專案往後**一律避開** `auth.admin.*`；`getUserById`（AuthAdapter 介面尚存但無人呼叫）如未來要用，須先驗證 Admin API 是否已恢復支援或改走其他管道。**併發注意**：`resetPasswordWithToken` 因需要 `setSession`/`updateUser` 綁定单一使用者 session，改用**請求範圍建立的獨立 client**（非共用單例），避免多請求併發時互相污染 session 狀態。
 
+## KB-010 API route 必須有頂層例外防護網，否則例外＝空 body 而非乾淨 500
+- 類型：架構修正（Sprint 3，2026-07-13，正式站兩度撞見同一症狀後定位）
+- 內容：六支 auth API route 原本只在 `request.json()` 包 try/catch，service／adapter 呼叫本身沒包。任何未預期例外（KB-009 的 Admin API 401、Supabase `email_address_invalid` 等）會讓回應變成**狀態 200 但 body 全空、自訂 header 也消失**——不是乾淨的 500。前端據此誤判為「連線問題」而非顯示明確錯誤。
+- 修法：建立 `src/lib/api-handler.ts` 的 `withErrorEnvelope()` wrapper，包住所有 route handler；任何未捕捉例外一律轉統一 500 error envelope（`INTERNAL_ERROR`，訊息不含例外細節，日誌只記 errorName）。可預期的使用者輸入錯誤（如 Email 格式不合法）改在 adapter／service 回結構化結果，不當例外拋出。
+- 未來避免：**新增任何 API route 一律套用 `withErrorEnvelope`**，不要各自寫 try/catch；新的可預期錯誤（Supabase 特定 error.code）評估是否該回結構化結果而非例外。
+
 ## 新紀錄模板
 （依方法論 13.2 節）
