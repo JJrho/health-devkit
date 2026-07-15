@@ -3,16 +3,24 @@ import type { AuthAdapter, AuthUser } from "../auth-adapter";
 
 /**
  * AuthAdapter 的 Supabase 實作（A7/A9）。
- * - anon client：signUp／signInWithPassword／resetPasswordForEmail／verifyOtp
- * - admin client（service_role）：Email 既存檢查、依 id 讀使用者
- * 兩把金鑰皆來自環境變數，僅在本 adapter 使用（憲法 §1）。
+ *
+ * 注意：本專案的 Supabase service_role 為新版不透明金鑰（sb_secret_...），
+ * 該格式目前不被 GoTrue Admin API（auth.admin.*）接受（實測回 401 no_authorization）。
+ * 因此註冊查重複與密碼重設一律改走官方文件記載、不依賴 Admin API 的標準流程：
+ * - 註冊查重複：signUp 對已存在 Email 回 identities:[]（防枚舉的官方判斷法）
+ * - 密碼重設：verifyOtp 成功即取得 session，直接在同一 client 呼叫 updateUser
+ * getUserById 目前未被任何 Feature 呼叫，暫留 Admin API 實作；真正要用時需另尋方案。
  */
 export class SupabaseAuthAdapter implements AuthAdapter {
+  private readonly url: string;
+  private readonly anonKey: string;
   private readonly anon: SupabaseClient;
   private readonly admin: SupabaseClient;
 
   constructor(url: string, anonKey: string, serviceRoleKey: string) {
     const options = { auth: { persistSession: false, autoRefreshToken: false } };
+    this.url = url;
+    this.anonKey = anonKey;
     this.anon = createClient(url, anonKey, options);
     this.admin = createClient(url, serviceRoleKey, options);
   }
@@ -22,18 +30,17 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     password: string,
     verifyRedirectTo: string,
   ): Promise<{ userId: string } | "EMAIL_EXISTS"> {
-    // Supabase 對既存 Email 的 signUp 會回混淆結果（防枚舉），
-    // 但 SDD §4.1 要求註冊側明確提示——以 admin API 先查。
-    const existing = await this.findUserIdByEmail(email);
-    if (existing) return "EMAIL_EXISTS";
-
     const { data, error } = await this.anon.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: verifyRedirectTo },
     });
-    if (error || !data.user) {
-      throw new Error(`註冊失敗：${error?.code ?? "unknown"}`);
+    if (error) throw new Error(`註冊失敗：${error.code ?? "unknown"}`);
+    if (!data.user) throw new Error("註冊失敗：無使用者資料回傳");
+
+    // Email 已存在時，Supabase 回傳成功但 identities 為空陣列（防枚舉設計）
+    if (data.user.identities && data.user.identities.length === 0) {
+      return "EMAIL_EXISTS";
     }
     return { userId: data.user.id };
   }
@@ -66,18 +73,20 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     tokenHash: string,
     newPassword: string,
   ): Promise<boolean> {
-    const { data, error } = await this.anon.auth.verifyOtp({
+    // 用請求範圍的獨立 client（非共用單例），避免併發請求互相污染 session 狀態
+    const scoped = createClient(this.url, this.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data, error } = await scoped.auth.verifyOtp({
       type: "recovery",
       token_hash: tokenHash,
     });
-    if (error || !data.session) return false; // 逾時或已用（C9 由 Supabase 單次性＋後台效期設定保證）
+    if (error || !data.session) return false; // 逾時或已用（C9：Supabase 單次性＋後台效期設定保證）
 
-    const { error: updateError } = await this.admin.auth.admin.updateUserById(
-      data.session.user.id,
-      { password: newPassword },
-    );
-    // 重設後撤銷該臨時 session
-    await this.anon.auth.signOut({ scope: "local" });
+    const { error: updateError } = await scoped.auth.updateUser({
+      password: newPassword,
+    });
     return !updateError;
   }
 
@@ -89,23 +98,5 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       email: data.user.email,
       emailVerified: Boolean(data.user.email_confirmed_at),
     };
-  }
-
-  private async findUserIdByEmail(email: string): Promise<string | null> {
-    // supabase-js v2 admin API 無 getUserByEmail；以分頁列舉過濾（使用者量大前夠用，
-    // 屆時改用 GoTrue admin REST 的 email 過濾）
-    const normalized = email.toLowerCase();
-    let page = 1;
-    for (;;) {
-      const { data, error } = await this.admin.auth.admin.listUsers({
-        page,
-        perPage: 200,
-      });
-      if (error) throw new Error(`使用者查詢失敗：${error.code ?? "unknown"}`);
-      const hit = data.users.find((u) => u.email?.toLowerCase() === normalized);
-      if (hit) return hit.id;
-      if (data.users.length < 200) return null;
-      page += 1;
-    }
   }
 }

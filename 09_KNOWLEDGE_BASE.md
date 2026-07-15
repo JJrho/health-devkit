@@ -41,5 +41,11 @@
 - 內容：(1) 部署於 PO 現有 Linode Tokyo 專屬伺服器（1C/2GB，與 Supabase 同城；資源吃緊再升級）；(2) 同 repo 兩 service：web（自動偵測 Next.js）＋worker（zbpack.worker.json 指定啟動）；(3) Zeabur 的 GitHub App 授權與 Supabase 的 GitHub 整合是**兩個獨立授權**；(4) 機密設定：腳本從本機 .env 讀值直送 CLI、輸出遮蔽——金鑰永不經對話；(5) 專案／service ID 記於 CLAUDE.md
 - 未來避免：Worker 的執行期依賴（如 tsx）必須放 dependencies 而非 devDependencies
 
+## KB-009 Supabase 新版 sb_secret_ 金鑰不被 GoTrue Admin API 接受
+- 類型：接入教訓（Sprint 3，2026-07-13，正式站實測發現）
+- 內容：新版不透明 service_role 金鑰（`sb_secret_...`）打 `/auth/v1/admin/*`（`auth.admin.listUsers`／`updateUserById`／`getUserById`）直接回 401 `no_authorization`；資料庫查詢與一般 Data API 不受影響，只有 GoTrue Admin API 這條路徑會擋。症狀：API 回 200 但 body 全空、自訂 header 也消失（handler 中途拋例外，非邏輯錯誤）。
+- 修法：改用不依賴 Admin API 的官方標準流程——(1) 查重複 Email：`signUp()` 對已存在帳號回傳 `identities: []`（防枚舉設計，直接可判斷）；(2) 重設密碼：`verifyOtp()` 成功即取得 session，同一 client 直接 `updateUser({password})`，不必經 admin。
+- 未來避免：本專案往後**一律避開** `auth.admin.*`；`getUserById`（AuthAdapter 介面尚存但無人呼叫）如未來要用，須先驗證 Admin API 是否已恢復支援或改走其他管道。**併發注意**：`resetPasswordWithToken` 因需要 `setSession`/`updateUser` 綁定单一使用者 session，改用**請求範圍建立的獨立 client**（非共用單例），避免多請求併發時互相污染 session 狀態。
+
 ## 新紀錄模板
 （依方法論 13.2 節）
