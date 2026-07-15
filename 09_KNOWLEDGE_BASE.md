@@ -46,6 +46,7 @@
 - 內容：新版不透明 service_role 金鑰（`sb_secret_...`）打 `/auth/v1/admin/*`（`auth.admin.listUsers`／`updateUserById`／`getUserById`）直接回 401 `no_authorization`；資料庫查詢與一般 Data API 不受影響，只有 GoTrue Admin API 這條路徑會擋。症狀：API 回 200 但 body 全空、自訂 header 也消失（handler 中途拋例外，非邏輯錯誤）。
 - 修法：改用不依賴 Admin API 的官方標準流程——(1) 查重複 Email：`signUp()` 對已存在帳號回傳 `identities: []`（防枚舉設計，直接可判斷）；(2) 重設密碼：`verifyOtp()` 成功即取得 session，同一 client 直接 `updateUser({password})`，不必經 admin。
 - 未來避免：本專案往後**一律避開** `auth.admin.*`；`getUserById`（AuthAdapter 介面尚存但無人呼叫）如未來要用，須先驗證 Admin API 是否已恢復支援或改走其他管道。**併發注意**：`resetPasswordWithToken` 因需要 `setSession`/`updateUser` 綁定单一使用者 session，改用**請求範圍建立的獨立 client**（非共用單例），避免多請求併發時互相污染 session 狀態。
+- **更新（2026-07-15，Sprint 4 排查 C6 登入問題時重驗）**：`admin.listUsers()` 現在正常回應（非 401），與本條原始記載不符——Supabase 端可能已修復相容性。**在真正依賴 Admin API 前，務必用一次性診斷腳本重新確認**，不要直接假設本條仍然成立；但即使 Admin API 可用，也不代表適合用來「繞過」email 確認登入（見 C6 相關新發現）。
 
 ## KB-010 API route 必須有頂層例外防護網，否則例外＝空 body 而非乾淨 500
 - 類型：架構修正（Sprint 3，2026-07-13，正式站兩度撞見同一症狀後定位）
@@ -100,6 +101,27 @@
 - 內容：為了重現 Zeabur production build 的行為，本機跑過 `pnpm build && pnpm start` 之後，若沒有徹底清乾淨就切回 `pnpm dev` 或 `pnpm test:e2e`，會出現兩種假性故障：(1) 殘留的 `.next`（production build 產物）與 dev 模式的內部結構不相容，導致明明存在的頁面（如 `/reset-password`）回報 404；(2) `pnpm start` 起的 process 沒被完全終止、占用 3000 埠，導致 Playwright 的 dev server 改用 3003 卻仍等待 3000 而逾時失敗。兩者症狀都容易誤判為程式碼壞掉。
 - 修法：`rm -rf .next test-results playwright-report`；用 PowerShell `Get-NetTCPConnection -LocalPort 3000 | Stop-Process` 確實清掉佔用 3000 的殭屍程序（Bash 的 `pkill` 在此 Windows 環境下對這類程序不可靠）；之後再重跑 `pnpm dev`／`pnpm test:e2e`。
 - 未來避免：任何一次本機 production build 診斷（`pnpm build`／`pnpm start`）結束後，**立即**清 `.next` 並確認 3000 埠已釋放，才能切回一般開發／測試流程。
+
+## KB-018 Supabase 專用連線角色 BYPASSRLS，RLS 政策對 app 自身連線不生效
+- 類型：架構限制（Sprint 4，2026-07-15，E1-F4 實作中發現）
+- 內容：本專案的 `DATABASE_URL` 走 Supabase Transaction pooler 連線，角色為 `postgres`（專案擁有者角色），查詢 `pg_roles` 確認 `rolbypassrls=true`。這代表任何在資料表上建立的 RLS 政策，對這條連線本身**完全不生效**（BYPASSRLS 角色的查詢一律跳過政策檢查），無論政策寫得多正確。
+- 影響：SDD §7「RLS 為第二道防禦」目前**形同虛設**——`projects` 表已建好 `ENABLE ROW LEVEL SECURITY`＋owner_id 政策（見 `drizzle/0002_chilly_chat.sql`），但實際擋跨帳號存取的只有應用層四層權限鏈（`src/modules/projects/access.ts`）這一道防線。
+- 修法（尚未執行，需 PO 確認後再動手）：另建一個不具 `BYPASSRLS` 的專用 Postgres 角色，僅授予必要的 table 權限，並改接 `DATABASE_URL` 使用該角色——牽涉 Supabase 角色新增＋Zeabur web／worker 雙 service 環境變數同步更新，屬正式環境憑證異動，比照 KB-013/KB-014 教訓「一次到位、勿分批」處理。
+- 未來避免：**任何後續 Feature 若也想靠 RLS 當第二道防禦，先用 `select rolbypassrls from pg_roles where rolname = current_user` 確認目前連線角色是否真的受 RLS 約束**，不要假設「建了政策就有效」。診斷腳本用完即刪，不留在 `scripts/`。
+
+## KB-019 多個測試檔共用同一 `@test.invalid` LIKE 萬用字元清理，新增 FK 參照表後會互相炸鍋
+- 類型：測試基礎設施教訓（Sprint 4，2026-07-15，新增 `projects` 表後首次觸發）
+- 內容：`tests/unit/auth-service.test.ts` 的 `afterAll` 用 `like(users.email, "%@test.invalid")` 掃描並清除測試使用者。新增 `projects` 表（FK 參照 `users.id`）後，若另一份測試檔（如 `projects-service.test.ts`）建立的測試使用者 email 也以 `@test.invalid` 結尾，兩個測試檔在 vitest 預設平行執行下會互相清到「對方仍有 FK 參照、自己還沒清完」的使用者，導致 `update or delete on table "users" violates foreign key constraint` 而整個測試檔判定失敗（儘管個別 `it` 斷言全數通過）。
+- 修法：新增測試檔改用**不同網域尾綴**（例如 `@projects.test.invalid`），與既有 `auth-service.test.ts` 的 `%@test.invalid` 萬用字元不重疊，兩者互不清到對方資料。
+- 未來避免：**未來任何新表若會被測試以 `@test.invalid` 開頭的帳號建立且有 FK 參照 `users`，一律替該測試檔取一個獨立的網域尾綴**，不要與其他測試檔共用同一個萬用字元收尾模式；若真的需要共用清理邏輯，改成各測試檔追蹤自己建立的 user id 陣列，而非重新查詢萬用字元。
+
+## KB-020 未驗證帳號無法登入，與 C6 牴觸（PO 2026-07-15 決定暫緩修復）
+- 類型：已知限制（Sprint 4，2026-07-15，E1-F4 手動驗證時發現）
+- 內容：全新註冊、尚未點驗證信的帳號，走真實 Supabase `signInWithPassword` 一律回 `email_not_confirmed`（400），與 C6「未驗證帳號可登入、可建專案；上傳與 AI 鎖定至驗證完成」直接牴觸。Sprint 3 的自動化測試（`tests/unit/auth-service.test.ts`）用 `FakeAuthAdapter`，從未真正打到 Supabase，故未發現；PO 當時的正式站實測結論待確認是否恰好用了已驗證帳號。
+- 為何沒有直接修：唯一乾淨的修法是關閉 Supabase 專案的「Confirm email」設定（Authentication → Sign In / Providers → Email），但**不確定**關閉後 Supabase 是否會把所有新帳號的 `email_confirmed_at` 在註冊當下就直接設為已驗證——若是如此，C6 原本「未驗證但可登入、上傳/AI 鎖定」的中間狀態會被整個抹除，等於連帶砍掉一個既有設計意圖，而不只是解除登入阻擋。這個行為需要先在真實環境驗證才能確認，且是帳號安全設定變更，不應該在沒把握的情況下直接切換。
+- 已重新確認：KB-009 記載的 GoTrue Admin API 401 問題**目前已不存在**（`admin.listUsers()` 正常回應）；但 Admin API 沒有「驗證密碼」端點，無法用來繞過 `signInWithPassword` 的 confirm-email 檢查，且用 Admin API 在註冊當下就強制 `email_confirm: true` 會跟關 Supabase 設定一樣，抹掉未驗證狀態——同樣的兩難。
+- PO 決定（2026-07-15）：本輪不修，先記錄為已知限制。
+- 未來處理時的路線圖：(1) 先在 Supabase 找一個非正式環境（或用一次性診斷腳本＋測試帳號）驗證「Confirm email 關閉」對 `email_confirmed_at` 的實際行為；(2) 若確認會被抹除，需改為在我方應用層獨立追蹤「是否真的點過驗證信」（例如：`/auth/verified` 落地頁偵測 URL 是否帶有 Supabase 回傳的驗證 token，而非單純判斷頁面有無被開啟），不再依賴 Supabase 的 `email_confirmed_at` 作為 C6 的判斷來源；(3) 若確認不會被抹除，直接關閉設定即可，屬於低風險修正。
 
 ## 新紀錄模板
 （依方法論 13.2 節）

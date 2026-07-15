@@ -15,6 +15,13 @@
       "when": 1783834464017,
       "tag": "0001_large_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784118361486,
+      "tag": "0002_chilly_chat",
+      "breakpoints": true
     }
   ]
 }

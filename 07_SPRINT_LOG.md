@@ -1,6 +1,42 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 3 ✅ 完成（2026-07-12～07-15）——**E1-F2 帳號生命週期結案（Feature 2/20）**。下一個：Sprint 4（E1-F4 健康專案模組與四層權限鏈，安全基線 🔴）DOR。
+> 目前狀態：Sprint 4 實作完成、本機驗證通過（2026-07-15）——**E1-F4 健康專案模組與四層權限鏈**，尚待 PO 審閱＋正式站部署驗收。
+
+## Sprint 4 — E1-F4：健康專案模組與四層權限鏈（安全基線 🔴）🟡 待 PO 驗收
+
+- 期間：2026-07-15（單日完成實作與本機驗證）
+- DOR：✅ 通過（sprints/sprint-04-dor.md；A11–A14 由 PO 追認，A15 為實作中新發現）
+- 目標：`projects` CRUD／封存／還原／軟刪除＋四層權限鏈（登入→擁有權→資源屬於專案→未刪除）＋RLS 政策就緒 → **實作與本機驗證達成，尚未部署正式站**
+
+### 驗收結果（AC-1～AC-9；本機真實瀏覽器＋整合測試驗證，未經 PO 正式站驗收）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ 整合測試＋瀏覽器實測：建立成功，owner／status/active／version=1 |
+| AC-2 | ✅ 整合測試：列表排除已刪除、依 last_accessed_at 排序、標示最近專案 |
+| AC-3 | ✅ 整合測試＋瀏覽器實測：改名成功 version+1；帶舊 version 回 VERSION_CONFLICT 不覆寫（本案首次落地 OCC） |
+| AC-4 | ✅ 整合測試＋瀏覽器實測（含 window.confirm 防誤觸）：封存⇄還原皆成功且冪等 |
+| AC-5 | ✅ 整合測試＋瀏覽器實測：刪除後任一操作視同不存在 |
+| AC-6 | ✅ 整合測試＋真實 curl 跨帳號請求：一律 403 PROJECT_ACCESS_DENIED＋warn log（僅含識別碼） |
+| AC-7 | ✅ curl 實測：未登入回 401 AUTH_REQUIRED，與 AC-6 的 403 語意明確區分 |
+| AC-8 | ⚠️ 部分：RLS 政策已建立但因連線角色 BYPASSRLS 尚未實際生效（KB-018/A15）；真正防線為應用層四層鏈，已驗證 |
+| AC-9 | ✅ e2e＋整合測試：未登入頁面顯示提醒與登入連結；稽核 log 僅含白名單識別碼 |
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 9 檔／34 test 全綠；`pnpm build` 乾淨過；typecheck／lint 無錯誤
+- [x] 肉眼驗收：本機真實瀏覽器走過建立/改名/封存/還原/刪除全流程＋跨帳號拒絕；PO 正式站驗收待後續
+- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-018/019／SYNC／ROADMAP 已更新；OpenAPI 已補 `/api/projects` 系列
+- [x] 假設 A11–A14 已於 DOR 追認；本輪新增 A15（實作中發現，見 sprint-04-dor.md）
+- [x] 追加 DOD：四層權限鏈為本輪 P0（AC-6～AC-8）；日誌掃描通過（AC-9）；LLM Streaming N/A
+- [ ] 下一步：PO 審閱本輪產出＋決定是否部署正式站驗收
+
+### 本輪重大發現（非本輪 bug，但值得記錄）
+1. **RLS BYPASSRLS 發現**（KB-018）：`DATABASE_URL` 連線角色為 Supabase `postgres`，`rolbypassrls=true`，RLS 政策對 app 自身連線不生效；真正防線是應用層四層鏈。修法（另建專用角色）需 PO 確認後才動手，屬正式環境憑證異動。
+2. **E1-F2 遺留問題**：手動用全新帳號（未點驗證信）走真實 Supabase 登入時，一律回 `email_not_confirmed`，與 C6「未驗證帳號可登入」牴觸。Sprint 3 的自動化測試用 FakeAuthAdapter 未曾真正打到 Supabase，故未發現。已另開背景任務追蹤修復，不在本輪範圍內處理。
+3. **測試資料網域碰撞**（KB-019）：新測試檔與既有 `auth-service.test.ts` 共用 `%@test.invalid` 清理萬用字元，因新表有 FK 參照而互炸；改用獨立網域尾綴解決。
+
+### 給下一個 Sprint 的具體提醒
+- 部署前：先確認是否要處理 KB-018（RLS 專用角色）與 E1-F2 登入問題，或先部署本輪成果、兩者列入已知限制
+- 新增會被 `@test.invalid` 系列測試建立且有 FK 參照 `users` 的表時，測試檔一律用獨立網域尾綴（KB-019）
 
 ## Sprint 3 — E1-F2：帳號生命週期模組 ✅
 

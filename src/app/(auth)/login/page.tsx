@@ -46,6 +46,14 @@ export default function LoginPage() {
   return (
     <AuthCard title="登入">
       <FormMessage kind={message.kind} text={message.text} />
+      {message.kind === "success" && (
+        <a
+          href="/projects"
+          className="mb-4 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+        >
+          前往我的健康專案
+        </a>
+      )}
       <form onSubmit={handleSubmit} noValidate>
         <TextField
           id="email"

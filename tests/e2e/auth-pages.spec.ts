@@ -67,3 +67,9 @@ test("驗證完成頁渲染", async ({ page }) => {
   await page.goto("/auth/verified");
   await expect(page.getByRole("heading", { name: /Email 驗證完成/ })).toBeVisible();
 });
+
+test("專案頁：未登入顯示提醒與登入連結（E1-F4）", async ({ page }) => {
+  await page.goto("/projects");
+  await expect(page.getByRole("status")).toContainText("請先登入");
+  await expect(page.getByRole("link", { name: "前往登入" })).toBeVisible();
+});

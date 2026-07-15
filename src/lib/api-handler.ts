@@ -7,13 +7,13 @@ import { logger } from "./logger";
  * 一律轉為統一 500 error envelope，絕不讓例外裸露成空 body（曾發生：
  * 例外導致回應狀態與內容不一致，前端誤判為連線問題，見 KB-009）。
  */
-export function withErrorEnvelope(
-  handler: (request: NextRequest, requestId: string) => Promise<NextResponse>,
+export function withErrorEnvelope<Context = unknown>(
+  handler: (request: NextRequest, requestId: string, context: Context) => Promise<NextResponse>,
 ) {
-  return async (request: NextRequest): Promise<NextResponse> => {
+  return async (request: NextRequest, context: Context): Promise<NextResponse> => {
     const requestId = newRequestId();
     try {
-      return await handler(request, requestId);
+      return await handler(request, requestId, context);
     } catch (error) {
       const errorName = error instanceof Error ? error.constructor.name : "UnknownError";
       logger.error("API 未預期例外", {

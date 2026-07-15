@@ -9,7 +9,7 @@ import { withErrorEnvelope } from "@/lib/api-handler";
 describe("withErrorEnvelope", () => {
   it("正常 handler 原樣放行", async () => {
     const handler = withErrorEnvelope(async () => NextResponse.json({ ok: true }));
-    const response = await handler(new NextRequest("http://localhost/api/x"));
+    const response = await handler(new NextRequest("http://localhost/api/x"), undefined);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
   });
@@ -19,7 +19,7 @@ describe("withErrorEnvelope", () => {
     const handler = withErrorEnvelope(async () => {
       throw new Error("包含機密內容的內部錯誤細節");
     });
-    const response = await handler(new NextRequest("http://localhost/api/x"));
+    const response = await handler(new NextRequest("http://localhost/api/x"), undefined);
     expect(response.status).toBe(500);
 
     const body = await response.json();

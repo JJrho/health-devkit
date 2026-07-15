@@ -19,6 +19,8 @@ const SAFE_FIELD_WHITELIST = [
   "path",
   "method",
   "httpStatus",
+  "userId",
+  "projectId",
 ] as const;
 
 export type SafeFields = Partial<{
@@ -33,6 +35,9 @@ export type SafeFields = Partial<{
   path: string;
   method: string;
   httpStatus: number;
+  /** UUID 識別碼，非健康內容——供跨帳號存取稽核關聯用（E1-F4 AC-6／A11） */
+  userId: string;
+  projectId: string;
 }>;
 
 function redact(fields: Record<string, unknown>): Record<string, unknown> {

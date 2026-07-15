@@ -45,10 +45,77 @@
     "/api/auth/me": {
       "get": {
         "operationId": "getMe",
-        "summary": "目前登入者（session 驗證＋滑動展延 C8）",
+        "summary": "目前登入者（session 驗證＋滑動展延 C8；附最近存取專案 id）",
         "responses": {
-          "200": { "description": "email 與 emailVerified" },
+          "200": { "description": "email、emailVerified、mostRecentProjectId" },
           "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects": {
+      "post": {
+        "operationId": "createProject",
+        "summary": "建立健康專案（AC-1；C6 未驗證亦可建立）",
+        "responses": {
+          "200": { "description": "已建立，owner＝目前登入者、version=1" },
+          "400": { "description": "缺專案名稱（ErrorEnvelope）" },
+          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+        }
+      },
+      "get": {
+        "operationId": "listProjects",
+        "summary": "專案列表（AC-2；排除已刪除，附最近存取專案 id）",
+        "responses": {
+          "200": { "description": "items＋mostRecentProjectId" },
+          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "取得單一專案（四層權限鏈；標記最近存取）",
+        "responses": {
+          "200": { "description": "專案內容" },
+          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（AC-6，跨帳號一律拒絕＋稽核）" }
+        }
+      },
+      "patch": {
+        "operationId": "renameProject",
+        "summary": "改名（AC-3；OCC 樂觀鎖，version 不符回 409）",
+        "responses": {
+          "200": { "description": "已更新，version+1" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "409": { "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "summary": "刪除（AC-5；任一非刪除狀態→deleted，軟刪除）",
+        "responses": {
+          "200": { "description": "已刪除" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/archive": {
+      "post": {
+        "operationId": "archiveProject",
+        "summary": "封存（AC-4；active→archived，已封存者冪等成功）",
+        "responses": {
+          "200": { "description": "已封存" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/restore": {
+      "post": {
+        "operationId": "restoreProject",
+        "summary": "還原（AC-4；archived→active，已是 active 者冪等成功；deleted 不可還原）",
+        "responses": {
+          "200": { "description": "已還原" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
         }
       }
     },

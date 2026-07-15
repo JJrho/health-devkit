@@ -123,7 +123,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 ## 15. 當前 Sprint 狀態
 
-**E1-F2 帳號生命週期完成（2026-07-15，Sprint 3，Feature 2/20）**：Email 註冊/驗證/登入/忘記密碼/session/鎖定全數上線並經 PO 正式站親自驗收（含完整密碼重設流程）。密碼重設改走 Supabase implicit recovery flow（KB-012，免費方案 Email 樣板無法自訂）；Zeabur 伺服器已升級 2C/4GB（KB-013）。細節見 07_SPRINT_LOG、KB-009~014。下一個：Sprint 4（E1-F4 健康專案模組與四層權限鏈，安全基線 🔴）DOR。
+**E1-F2 帳號生命週期完成（2026-07-15，Sprint 3，Feature 2/20）**：Email 註冊/驗證/登入/忘記密碼/session/鎖定全數上線並經 PO 正式站親自驗收（含完整密碼重設流程）。密碼重設改走 Supabase implicit recovery flow（KB-012，免費方案 Email 樣板無法自訂）；Zeabur 伺服器已升級 2C/4GB（KB-013）。細節見 07_SPRINT_LOG、KB-009~014。
+
+**Sprint 4（E1-F4 健康專案模組與四層權限鏈）實作完成、本機驗證通過（2026-07-15）**：`projects` 表＋CRUD＋封存/還原/軟刪除＋OCC 樂觀鎖（首次落地 VERSION_CONFLICT）＋四層權限鏈（`src/modules/projects`）皆已完成，並用真實瀏覽器＋跨帳號 session 手動驗證通過（403/401 語意區分、稽核 log）；typecheck／lint／`pnpm build`／34 個單元＋整合測試全綠。⚠️ RLS 政策已建立但因連線角色 BYPASSRLS 尚未實際生效（KB-018，A15），真正防線為應用層四層鏈；另發現 E1-F2 遺留問題——全新未驗證帳號目前無法登入，與 C6 牴觸（已另開任務追蹤，不在本輪修復範圍）。尚待：PO 審閱＋正式站部署驗收。
 
 ## 16. 相關文件索引
 
