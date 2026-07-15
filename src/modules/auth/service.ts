@@ -109,14 +109,12 @@ export class AuthService {
     await revokeSession(sessionToken);
   }
 
-  /** AC-6（C9）：重設信；對不存在 Email 靜默成功 */
+  /**
+   * AC-6（C9）：寄送重設信；對不存在 Email 靜默成功。
+   * 實際重設密碼在瀏覽器端完成（KB-012），本服務不提供 resetPassword 方法。
+   */
   async forgotPassword(email: string, resetRedirectTo: string): Promise<void> {
     await this.adapter.sendPasswordReset(email.trim().toLowerCase(), resetRedirectTo);
-  }
-
-  async resetPassword(tokenHash: string, newPassword: string): Promise<boolean> {
-    if (newPassword.length < 8) return false;
-    return this.adapter.resetPasswordWithToken(tokenHash, newPassword);
   }
 
   /** C6 閘：同步 email_verified 快照（登入與 me 時呼叫） */

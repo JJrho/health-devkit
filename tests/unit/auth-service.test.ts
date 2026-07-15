@@ -35,9 +35,6 @@ class FakeAuthAdapter implements AuthAdapter {
   }
 
   async sendPasswordReset(): Promise<void> {}
-  async resetPasswordWithToken(): Promise<boolean> {
-    return false;
-  }
   async getUserById(): Promise<AuthUser | null> {
     return null;
   }

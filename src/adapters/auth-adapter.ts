@@ -24,11 +24,13 @@ export interface AuthAdapter {
     password: string,
   ): Promise<{ userId: string; emailVerified: boolean } | null>;
 
-  /** 觸發密碼重設信（對不存在的 Email 靜默成功，避免枚舉） */
+  /**
+   * 觸發密碼重設信（對不存在的 Email 靜默成功，避免枚舉）。
+   * 注意（KB-012）：免費方案未設定自訂 SMTP 前 Email 樣板無法自訂，重設信
+   * 走 Supabase 預設樣板＋implicit recovery flow；實際更新密碼在瀏覽器端
+   * 完成（src/lib/supabase-browser.ts＋reset-password 頁面），不透過本 adapter。
+   */
   sendPasswordReset(email: string, resetRedirectTo: string): Promise<void>;
-
-  /** 以重設 token 更新密碼；token 逾時或已用回 false（C9） */
-  resetPasswordWithToken(tokenHash: string, newPassword: string): Promise<boolean>;
 
   /** 讀取使用者目前狀態（email 驗證與否等） */
   getUserById(userId: string): Promise<AuthUser | null>;

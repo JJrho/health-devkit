@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { RecoveryHashRouter } from "@/components/auth/recovery-hash-router";
 
 export const metadata: Metadata = {
   title: "個人健康檢查管理平台",
@@ -11,7 +12,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-Hant">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <RecoveryHashRouter />
+        {children}
+      </body>
     </html>
   );
 }

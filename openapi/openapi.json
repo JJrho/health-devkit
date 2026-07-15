@@ -42,16 +42,6 @@
         "responses": { "200": { "description": "已受理" } }
       }
     },
-    "/api/auth/reset-password": {
-      "post": {
-        "operationId": "resetPassword",
-        "summary": "以 token 重設密碼（C9：30 分鐘、單次有效）",
-        "responses": {
-          "200": { "description": "已重設" },
-          "400": { "description": "RESET_TOKEN_INVALID（ErrorEnvelope）" }
-        }
-      }
-    },
     "/api/auth/me": {
       "get": {
         "operationId": "getMe",

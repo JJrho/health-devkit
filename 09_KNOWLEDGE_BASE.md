@@ -63,5 +63,17 @@
 - 現象：`pnpm test` 完整套件執行時，`失敗路徑：fail 遞增 retry_count、回 pending 重試（AC-4）` 測試偶爾斷言失敗（retry_count 提前達到 max_retries）；同一測試檔單獨執行、或完整套件重跑，皆穩定通過。研判為測試執行期間某種時序/併發因素導致，非 QueueAdapter 本身邏輯錯誤（Worker 於 Zeabur 雲端已多次實測行為正確，見 Sprint 1/2 SPRINT_LOG）。
 - 處置：Sprint 3 範圍不含 Sprint 1 測試基礎設施排查，暫記待觀察；若未來重現頻率上升或伴隨其他測試檔一起表現異常，再排入對應 Sprint 深入排查。
 
+## KB-012 密碼重設改走 Supabase implicit recovery flow（免費方案 Email 樣板鎖死）
+- 類型：架構修正（Sprint 3，2026-07-15，PO 實測發現流程無限迴圈）
+- 內容：Supabase 免費方案未設定自訂 SMTP 前，Email 樣板（含 Reset Password）**無法編輯**，一律用預設樣板。預設樣板走 implicit recovery flow：驗證在 Supabase 伺服器端完成，結果以網址 `#access_token=...&type=recovery`（成功）或 `#error=...`（失敗／過期）夾帶回 Site URL，**不會**用我們原本設計的 `token_hash` query 參數格式，導致原本以 query 參數為基礎的 `/reset-password` 頁面完全收不到有效資訊，使用者點信件連結後陷入「跳回首頁／忘記密碼頁」的無限迴圈，且看不出成功或失敗。
+- 修法：改為官方推薦的瀏覽器端模式——`src/adapters/supabase-browser-client.ts`（僅 anon key，可安全暴露前端）＋根 layout 全域掛載 `RecoveryHashRouter`（監聽 hash 是否含 `error=` 或觸發 `PASSWORD_RECOVERY` 事件，統一導向 `/reset-password`）＋該頁改在瀏覽器端直接呼叫 `updateUser()`。移除原本後端的 `resetPasswordWithToken`／`/api/auth/reset-password`（不再可達，刪除死碼）。頁面一進去就明確顯示「連結驗證成功／已過期」，不再讓使用者猜測狀態。
+- 未來避免：若之後設定自訂 SMTP 解鎖樣板編輯，token_hash 式作法可重新評估是否啟用；瀏覽器端 Supabase 呼叫需要 `NEXT_PUBLIC_SUPABASE_URL`／`NEXT_PUBLIC_SUPABASE_ANON_KEY`（.env 與 Zeabur 皆需設定，值與伺服器端版本相同，非機密）。
+
+## KB-013 Zeabur 專屬伺服器（1C/2GB）記憶體吃緊，勿同時重啟多個 service
+- 類型：維運教訓（Sprint 3，2026-07-15，實測觸發）
+- 內容：`health-devkit` 的 web＋worker 與另一專案 `yihan-devkit` 共用同一台 Linode Tokyo 1C/2GB 專屬伺服器。穩態下 web≈315MB、worker≈250-300MB，伺服器整體使用率平時已達七成以上。**同時重啟 web 與 worker** 會讓舊 pod（尚未關閉）與新 pod（正在啟動）短暫並存，記憶體需求瞬間翻倍，觸發 Kubernetes MemoryPressure 逐出（evict）、進而陷入「重排程→再逐出」的循環，導致服務短暫中斷（502）。
+- 修法：本次靜待數分鐘後系統自行恢復穩定，未再介入。
+- 未來避免：**需要重啟多個 service 時，一次只重啟一個、確認穩定（health 端點 200）後再重啟下一個**；日誌輪替／密碼輪替等操作若需要重啟，比照辦理。長期若此類事件頻繁發生，考慮升級伺服器規格。
+
 ## 新紀錄模板
 （依方法論 13.2 節）

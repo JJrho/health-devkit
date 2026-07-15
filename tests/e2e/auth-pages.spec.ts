@@ -56,9 +56,11 @@ test("忘記密碼頁：提交後顯示防枚舉成功訊息", async ({ page }) 
   await expect(page.getByRole("heading", { name: "忘記密碼" })).toBeVisible();
 });
 
-test("重設密碼頁：缺 token 顯示引導訊息", async ({ page }) => {
-  await page.goto("/reset-password");
-  await expect(page.getByRole("status")).toContainText("重設連結不完整");
+test("重設密碼頁：連結含 error 參數時立即顯示過期／無效訊息（KB-012）", async ({ page }) => {
+  await page.goto(
+    "/reset-password#error=access_denied&error_code=otp_expired&error_description=link+expired",
+  );
+  await expect(page.getByRole("status")).toContainText("已過期或無效");
 });
 
 test("驗證完成頁渲染", async ({ page }) => {
