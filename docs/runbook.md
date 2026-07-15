@@ -22,11 +22,13 @@
 ## 3. 環境變數與金鑰輪替
 
 - **清單**：見 `.env.example`。真實值僅存在：PO 本機 `.env`＋Zeabur 服務變數。**永不**進 git、日誌、對話。
-- **輪替步驟**（任一金鑰疑似外洩即執行）：
+- **輪替步驟**（任一金鑰疑似外洩即執行；Sprint 3 KB-013/014 教訓，務必依序）：
   1. Supabase：Settings → API keys → 重新產生 secret key；Settings → Database → 重設 DB 密碼
-  2. 更新 PO 本機 `.env`
-  3. 更新 Zeabur `web`／`worker` 兩個 service 的對應變數 → 重啟服務
-  4. 驗證：`/api/health` 200＋worker 日誌無連線錯誤
+  2. 更新 PO 本機 `.env`（檢查用腳本，`Get-Content -Encoding UTF8`，勿印出內容）
+  3. **一次性**更新 Zeabur `web`**與**`worker`兩個 service 的對應變數（`variable update`，輸出只檢查是否含 "Successfully"，不印表格）——不要分批只改一個就重啟，舊 pod 用舊密碼連線失敗會累積觸發 Supabase pooler 斷路器（`ECIRCUITBREAKER`），之後即使密碼正確、新連線仍暫時被封鎖，症狀與密碼錯誤無法分辨
+  4. **依序**重啟：先 `web`，等 `/api/health` 200 穩定後才重啟 `worker`（勿同時重啟，避免記憶體瞬間翻倍觸發 MemoryPressure 逐出）
+  5. 驗證：`/api/health` 200＋`pnpm exec tsx scripts/verify-db.ts`（本機＋`zeabur service exec` 容器內皆跑一次）＋worker 日誌無連線錯誤
+  6. 若驗證仍顯示連線失敗但密碼確認無誤，優先懷疑斷路器：`zeabur service exec --id <id> -- pnpm exec tsx scripts/verify-db.ts` 直接看完整錯誤訊息（會明確顯示 `ECIRCUITBREAKER` 字樣），靜待冷卻（約 10-15 分鐘）後重測，不要頻繁重試（每次失敗連線都可能延長封鎖）
 - **憲法 §4 提醒**：日誌採白名單 redaction（src/lib/logger.ts）；發現日誌出現非白名單內容＝P0 事故。
 
 ## 4. 事故基本處置

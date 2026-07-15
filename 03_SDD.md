@@ -123,7 +123,7 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 ## 15. 當前 Sprint 狀態
 
-**E1-F1 整體完成（2026-07-12，Sprint 1＋2，Feature 1/20）**：技術棧 PoC 全過＋骨架收斂——CI 綠、Zeabur 雙 service 上線（https://health-devkit.zeabur.app）、API 基座（/api/health＋error envelope＋request_id＋OpenAPI 3.1 起頭）、日誌 redaction 基線、runbook。部署資訊見 CLAUDE.md；細節見 07_SPRINT_LOG。下一個：Sprint 3（E1-F2 帳號生命週期）DOR。
+**E1-F2 帳號生命週期完成（2026-07-15，Sprint 3，Feature 2/20）**：Email 註冊/驗證/登入/忘記密碼/session/鎖定全數上線並經 PO 正式站親自驗收（含完整密碼重設流程）。密碼重設改走 Supabase implicit recovery flow（KB-012，免費方案 Email 樣板無法自訂）；Zeabur 伺服器已升級 2C/4GB（KB-013）。細節見 07_SPRINT_LOG、KB-009~014。下一個：Sprint 4（E1-F4 健康專案模組與四層權限鏈，安全基線 🔴）DOR。
 
 ## 16. 相關文件索引
 

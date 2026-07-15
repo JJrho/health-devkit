@@ -1,14 +1,47 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 3 進行中（E1-F2 帳號生命週期；DOR ✅ 2026-07-12，A7–A10 追認）。
+> 目前狀態：Sprint 3 ✅ 完成（2026-07-12～07-15）——**E1-F2 帳號生命週期結案（Feature 2/20）**。下一個：Sprint 4（E1-F4 健康專案模組與四層權限鏈，安全基線 🔴）DOR。
 
-## Sprint 3 — E1-F2：帳號生命週期模組 🔵
+## Sprint 3 — E1-F2：帳號生命週期模組 ✅
 
-- 期間：2026-07-12 開工
+- 期間：2026-07-12 開工，2026-07-15 完整驗收通過（跨日：中間卡在部署事故排查）
 - DOR：✅ 通過（sprints/sprint-03-dor.md；A7–A10 由 PO 追認）
-- 目標：Email 註冊/驗證/登入/忘記密碼/session/鎖定（C6–C9、C11）＋公開站 auth UI
-- 驗收：AC-1～AC-8（見 DOR §6）
-- 狀態：🔵 進行中
+- 目標：Email 註冊/驗證/登入/忘記密碼/session/鎖定（C6–C9、C11）＋公開站 auth UI → **達成，含 PO 本人完整走過真實流程**
+
+### 驗收結果（AC-1～AC-8 全數通過，含 PO 現場實測）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ PO 正式站親自註冊，條款＋18 歲勾選、consent_records 入庫 |
+| AC-2 | ✅ 單元測試（TDD 種子）：同 Email 再註冊回 EMAIL_EXISTS，不建第二帳號 |
+| AC-3 | ✅ PO 正式站親自登入，顯示「登入成功！」，session 建立 |
+| AC-4 | ✅ 單元測試＋PO 實測：未驗證帳號可登入並顯示提醒（C6） |
+| AC-5 | ✅ 單元測試：15 分鐘 5 次鎖 15 分鐘、累犯翻倍、視窗重算、成功歸零（C7） |
+| AC-6 | ✅ **PO 親自完整走完**：忘記密碼→收信→點連結→設新密碼→用新密碼登入成功（C9） |
+| AC-7 | ✅ 單元測試：登出撤銷 session，之後驗證失敗 |
+| AC-8 | ✅ e2e：鍵盤可完成註冊流程；日誌不含 Email/密碼（redaction 斷言） |
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤／回歸測試通過：Vitest 27/27、Playwright 9/9、CI 綠
+- [x] 肉眼驗收：PO 於正式站完整走過註冊／登入／忘記密碼三條路徑
+- [x] 修正皆反映於規格與文件；SDD §15／ROADMAP／SYNC／KB-009~014 已更新
+- [x] 假設 A7–A10 已於 DOR 追認；本輪無新增 A 編號
+- [x] 追加 DOD：日誌掃描 ✅（Email/密碼不落地實測）；四層權限鏈部分適用（session 驗證為第一層，完整鏈於 E1-F4）；LLM Streaming N/A
+- [x] 下一步明確：Sprint 4（E1-F4）DOR
+
+### 本輪重大事件與教訓（本 Sprint 篇幅最長的一輪，記錄完整以利未來借鏡）
+1. **GoTrue Admin API 不接受新版 sb_secret_ 金鑰**（KB-009）：改用官方非 Admin API 流程（signUp 的 identities:[] 判斷重複、verifyOtp 後同 client 直接 updateUser）
+2. **API route 缺頂層例外防護**（KB-010）：未預期例外曾讓回應變成「200 但空 body」而非乾淨錯誤，建立 `withErrorEnvelope` wrapper 統一補強六支路由
+3. **Supabase 免費方案信件限流**（KB-011）：診斷測試耗盡每小時配額，結構化為 EMAIL_RATE_LIMITED 而非裸 500
+4. **密碼重設架構整個重寫**（KB-012）：免費方案未接自訂 SMTP 前 Email 樣板無法自訂，原本 token_hash 設計完全走不通，PO 實測發現無限迴圈；改為瀏覽器端監聽 PASSWORD_RECOVERY 事件＋全域 hash 攔截，移除已死的後端 token_hash 路徑
+5. **三次意外機密外洩**（同一 session）：Zeabur CLI 變數列表輸出未完整遮蔽（兩次）、對 `.env` 誤用 Read 工具（一次）——資料庫密碼與 Supabase secret key 因此三度輪替；已建立永久行為修正記憶（絕不對含機密檔案使用會印出內容的工具）
+6. **Zeabur 專屬伺服器記憶體吃緊**（KB-013）：1C/2GB 同時跑 web+worker+另一專案，同時重啟多個 service 觸發 MemoryPressure 逐出循環；**PO 已將伺服器升級為 2C/4GB**，問題根治
+7. **Supabase pooler 斷路器**（KB-014，本輪最終真相）：密碼輪替期間舊 pod 用舊密碼連線失敗累積，觸發 `ECIRCUITBREAKER`，之後即使密碼正確、新連線仍暫時被封鎖，與密碼錯誤訊息完全相同、長時間誤導診斷方向；靠 `service exec` 直接跑 verify-db.ts 才看到完整錯誤訊息定位；等待冷卻後恢復
+8. PowerShell 在此環境對含 CJK 字元的 `.env` 檔案有編碼誤判 bug，`Get-Content` 需明確指定 `-Encoding UTF8` 才能正確解析後續行
+
+### 給下一個 Sprint 的具體提醒
+- **輪替密碼／金鑰時一次到位**：同步更新所有會連線的 service（web＋worker）再重啟，不要分批多次改，避免觸發 KB-014 斷路器
+- **一次只重啟一個 service**，確認 health 200 穩定後再動下一個（KB-013）
+- 檢查 `.env` 結構一律用腳本讀值判斷布林/長度，絕不印出內容（含 Zeabur `variable list`）
 
 ## Sprint 2 — E1-F1 後半：骨架收斂 ✅
 
