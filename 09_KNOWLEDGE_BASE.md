@@ -114,6 +114,7 @@
 - 內容：`tests/unit/auth-service.test.ts` 的 `afterAll` 用 `like(users.email, "%@test.invalid")` 掃描並清除測試使用者。新增 `projects` 表（FK 參照 `users.id`）後，若另一份測試檔（如 `projects-service.test.ts`）建立的測試使用者 email 也以 `@test.invalid` 結尾，兩個測試檔在 vitest 預設平行執行下會互相清到「對方仍有 FK 參照、自己還沒清完」的使用者，導致 `update or delete on table "users" violates foreign key constraint` 而整個測試檔判定失敗（儘管個別 `it` 斷言全數通過）。
 - 修法：新增測試檔改用**不同網域尾綴**（例如 `@projects.test.invalid`），與既有 `auth-service.test.ts` 的 `%@test.invalid` 萬用字元不重疊，兩者互不清到對方資料。
 - 未來避免：**未來任何新表若會被測試以 `@test.invalid` 開頭的帳號建立且有 FK 參照 `users`，一律替該測試檔取一個獨立的網域尾綴**，不要與其他測試檔共用同一個萬用字元收尾模式；若真的需要共用清理邏輯，改成各測試檔追蹤自己建立的 user id 陣列，而非重新查詢萬用字元。
+- **更新（2026-07-15，Sprint 5 新增 `health_profiles` 表後再度觸發）**：`profiles-service.test.ts` 沿用 `@projects.test.invalid`（與 `projects-service.test.ts` 同網域，因需要建立真實 `projects` 列），結果 `projects-service.test.ts` 原本的 `afterAll` 直接 `DELETE FROM projects` 未先清 `health_profiles`，被新表的 FK 擋下。**根本原則其實不是「網域要不要獨立」，而是：任何刪除某表的清理邏輯，都必須先刪光「所有」FK 參照它的表——包含寫這段清理程式碼當下還不存在、之後才新增的表**。網域區隔只能防「不同測試檔的使用者互相誤刪」，防不了「同一批使用者底下，新表接到舊表的 FK 鏈」。修法：`projects-service.test.ts` 的 `afterAll` 改為刪除前先查出該使用者名下所有 `projects`，逐一清 `health_profiles` 後才刪 `projects`。**未來每新增一張會被既有測試資料 FK 參照的表，都要回頭檢查所有可能觸及該資料的既有測試檔清理順序**，不能只顧新測試檔自己的 `afterAll`。
 
 ## KB-020 未驗證帳號無法登入，與 C6 牴觸（PO 2026-07-15 決定暫緩修復）
 - 類型：已知限制（Sprint 4，2026-07-15，E1-F4 手動驗證時發現）

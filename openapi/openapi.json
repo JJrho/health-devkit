@@ -119,6 +119,26 @@
         }
       }
     },
+    "/api/projects/{id}/profile": {
+      "get": {
+        "operationId": "getProfile",
+        "summary": "取得個人健康背景（AC-1／AC-7；尚未建立回 profile:null，非 404）",
+        "responses": {
+          "200": { "description": "profile 內容或 null" },
+          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      },
+      "put": {
+        "operationId": "upsertProfile",
+        "summary": "建立或更新個人健康背景（AC-2／AC-3；autosave＋OCC 樂觀鎖）",
+        "responses": {
+          "200": { "description": "已儲存，version+1" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "409": { "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）" }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",

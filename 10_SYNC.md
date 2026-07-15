@@ -1,19 +1,21 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～3 ✅（2026-07-12～07-15）＝E1-F1＋E1-F2 Feature 結案（2/20）**：技術棧驗證＋CI＋Zeabur 雙 service 上線＋帳號生命週期全數上線並經 PO 正式站完整驗收（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 4（E1-F4 健康專案模組與四層權限鏈）實作完成、本機驗證通過（2026-07-15），尚未部署正式站／未經 PO 驗收**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
+開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～4 ✅（2026-07-12～07-15）＝E1-F1／E1-F2／E1-F4 Feature 結案（3/20）**：已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 5（E1-F5 個人健康背景模組）實作完成、本機驗證通過（2026-07-15，E1 全數結案 4/5），尚未部署正式站**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
 
 ## 2. 目前版本
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格 v1.2.2；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
-Sprint 4（E1-F4 健康專案模組）：`projects` CRUD／封存／還原／軟刪除／OCC 樂觀鎖（首次落地 VERSION_CONFLICT）／四層權限鏈全數完成，本機真實瀏覽器＋跨帳號 session＋curl 手動驗證通過（403/401 語意區分、稽核 log）；34 個測試＋typecheck／lint／`pnpm build` 全綠。尚未 commit／未部署 Zeabur／未經 PO 正式站驗收。實作中發現兩項待處理事項（見 07_SPRINT_LOG、09_KNOWLEDGE_BASE KB-018/019）：RLS 政策因連線角色 BYPASSRLS 尚未實際生效；E1-F2 遺留的未驗證帳號登入問題（已另開背景任務追蹤，不在本輪修復範圍）。
+Sprint 5（E1-F5 個人健康背景模組）：`health_profiles` jsonb（承接上游 §11.1／§12.2 共 20 欄位）＋`GET`/`PUT` autosave＋OCC＋四層鏈第 3 層「資源屬於專案」首次真正落地並驗證（同一使用者兩專案背景互相隔離）；真實瀏覽器驗證 autosave／續編／跨帳號 403＋稽核 log 不含健康內容；41 個測試＋typecheck／lint／`pnpm build` 全綠。尚未 commit／push／部署。過程修正測試基礎設施回歸（KB-019 更新）。
+
+Sprint 4（E1-F4 健康專案模組）：已 commit（`1d4da9e`）＋push＋正式站部署驗證通過。實作中發現兩項待處理事項（見 09_KNOWLEDGE_BASE KB-018/020）：RLS 政策因連線角色 BYPASSRLS 尚未實際生效；E1-F2 遺留的未驗證帳號登入問題。PO 2026-07-15 決定兩者皆暫緩、先記錄為已知限制。
 
 ## 4. 下一步
-PO 審閱 Sprint 4 產出（sprints/sprint-04-dor.md／07_SPRINT_LOG）→ 決定是否 commit／部署正式站驗收 → 視情況處理 KB-018（RLS 專用角色，屬正式環境憑證異動）與 E1-F2 登入問題 → E1-F5（個人健康背景模組）。
+PO 審閱 Sprint 5 產出 → 決定 commit／push／正式站部署時機。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。E1 全數完成後可規劃轉往 E2（健檢資料入庫管線）或補做 E1-F3（Google 登入）。
 
 ## 5. 最高優先事項
-Sprint 4 成果待 PO 驗收；KB-018（RLS BYPASSRLS）與 E1-F2 登入問題（C6 牴觸）待決定處理時機；高風險 PoC 依序：E2-F2 解析管線、E4-F3 引用驗證。
+Sprint 5 成果待 PO 審閱與部署；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC 依序：E2-F2 解析管線、E4-F3 引用驗證。
 
 ## 6. 不可破壞的原則
 憲法 §3 醫療安全全列；未確認資料不入正式分析；健康內容不入日誌（白名單 redaction 已落地）。**機密處理鐵則（本輪新增）：絕不對含機密的檔案／指令輸出使用會印出完整內容的工具，一律用腳本檢查布林/長度/結構。**

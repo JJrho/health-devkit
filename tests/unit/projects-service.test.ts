@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { eq, like } from "drizzle-orm";
 import { getDb, closePool } from "@/db/client";
-import { projects, users } from "@/db/schema";
+import { healthProfiles, projects, users } from "@/db/schema";
 import {
   archiveProject,
   auditAccessDenied,
@@ -36,6 +36,13 @@ describe.skipIf(!hasDb)("projects module（整合，需 DATABASE_URL）", () => 
       .from(users)
       .where(like(users.email, "%@projects.test.invalid"));
     for (const user of testUsers) {
+      const ownedProjects = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.ownerId, user.id));
+      for (const project of ownedProjects) {
+        await db.delete(healthProfiles).where(eq(healthProfiles.projectId, project.id));
+      }
       await db.delete(projects).where(eq(projects.ownerId, user.id));
       await db.delete(users).where(eq(users.id, user.id));
     }

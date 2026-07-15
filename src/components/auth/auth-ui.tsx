@@ -49,6 +49,35 @@ export function TextField(props: {
   );
 }
 
+export function TextareaField(props: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-5">
+      <label htmlFor={props.id} className="mb-1 block text-lg font-medium text-slate-900">
+        {props.label}
+      </label>
+      {props.hint ? (
+        <p id={`${props.id}-hint`} className="mb-1 text-base text-slate-600">
+          {props.hint}
+        </p>
+      ) : null}
+      <textarea
+        id={props.id}
+        value={props.value}
+        onChange={(event) => props.onChange(event.target.value)}
+        aria-describedby={props.hint ? `${props.id}-hint` : undefined}
+        rows={2}
+        className="w-full rounded-lg border-2 border-slate-400 px-4 py-3 text-lg text-slate-900 focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+      />
+    </div>
+  );
+}
+
 export function CheckboxField(props: {
   id: string;
   label: ReactNode;

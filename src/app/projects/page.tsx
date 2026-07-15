@@ -262,6 +262,12 @@ function ProjectRow({
             )}
           </div>
           <div className="flex flex-wrap gap-3">
+            <a
+              href={`/projects/${project.id}/profile`}
+              className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              個人健康背景
+            </a>
             {!isArchived && (
               <button
                 type="button"

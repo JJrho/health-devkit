@@ -1,14 +1,47 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 4 實作完成、本機驗證通過（2026-07-15）——**E1-F4 健康專案模組與四層權限鏈**，尚待 PO 審閱＋正式站部署驗收。
+> 目前狀態：Sprint 5 實作完成、本機驗證通過（2026-07-15）——**E1-F5 個人健康背景模組（E1 平台與信任基座全數結案，Feature 4/20）**，尚待 commit／push／正式站部署驗證。
 
-## Sprint 4 — E1-F4：健康專案模組與四層權限鏈（安全基線 🔴）🟡 待 PO 驗收
+## Sprint 5 — E1-F5：個人健康背景模組 🟡 待 commit／部署
 
 - 期間：2026-07-15（單日完成實作與本機驗證）
-- DOR：✅ 通過（sprints/sprint-04-dor.md；A11–A14 由 PO 追認，A15 為實作中新發現）
-- 目標：`projects` CRUD／封存／還原／軟刪除＋四層權限鏈（登入→擁有權→資源屬於專案→未刪除）＋RLS 政策就緒 → **實作與本機驗證達成，尚未部署正式站**
+- DOR：✅ 通過（sprints/sprint-05-dor.md；A16–A17 由 PO 追認）
+- 目標：`health_profiles` jsonb＋autosave＋OCC＋四層鏈第 3 層「資源屬於專案」 → **實作與本機驗證達成，尚未部署正式站**
 
-### 驗收結果（AC-1～AC-9；本機真實瀏覽器＋整合測試驗證，未經 PO 正式站驗收）
+### 驗收結果（AC-1～AC-8；整合測試＋真實瀏覽器＋curl 驗證）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ 整合測試：尚未建立回 `profile:null`（合法初始狀態） |
+| AC-2 | ✅ 整合測試＋瀏覽器實測：首次建立 `version=1` |
+| AC-3 | ✅ 整合測試：正確 version 更新成功 `version+1`；舊 version 回 `VERSION_CONFLICT` 不覆寫 |
+| AC-4 | ✅ 整合測試（本輪關鍵）：同一使用者兩個專案背景資料互相隔離，不會因「都是本人擁有」而混淆 |
+| AC-5 | ✅ 整合測試＋真實 curl：跨帳號一律 403 `PROJECT_ACCESS_DENIED`＋稽核 log |
+| AC-6 | ✅ 整合測試：專案已軟刪除後背景視同不存在 |
+| AC-7 | ✅ 瀏覽器實測：重新整理頁面，`過敏`/`慢性疾病` 等欄位內容保留（續編） |
+| AC-8 | ✅ 整合測試＋真實 log 檢查：跨帳號拒絕 log 僅含 `userId`／`projectId` 識別碼，不含填寫的健康描述內容 |
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 10 檔／41 test 全綠；`pnpm build` 乾淨過；typecheck／lint 無錯誤
+- [x] 肉眼驗收：本機真實瀏覽器走過填寫/autosave/續編/跨帳號拒絕全流程
+- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-019 更新／SYNC／ROADMAP 已更新；OpenAPI 已補 `/api/projects/{id}/profile`
+- [x] 假設 A16–A17 已於 DOR 追認；本輪無新增 A 編號
+- [x] 追加 DOD：四層權限鏈第 3 層為本輪 P0（AC-4）；日誌掃描為 P0 中的 P0（AC-8，首次真正儲存健康內容）；LLM Streaming N/A
+- [ ] 下一步：PO 確認 commit／push／正式站部署驗證時機
+
+### 本輪修正的測試基礎設施回歸
+新增 `health_profiles` 表後，`projects-service.test.ts` 原本的 `afterAll` 直接刪 `projects` 未先清新表 `health_profiles`，被 FK 擋下（`profiles-service.test.ts` 沿用同網域建立真實 projects 觸發）。修正：`projects-service.test.ts` 清理邏輯改為先查出使用者名下所有 projects、逐一清 `health_profiles` 後才刪 `projects`。已更新 KB-019：**任何刪除某表的清理邏輯，都必須先刪光所有 FK 參照它的表——包含當下還不存在、之後才新增的表**，網域區隔只能防「不同測試檔互相誤刪」，防不了「同一批使用者底下新表接舊表的 FK 鏈」。
+
+### 給下一個 Sprint 的具體提醒
+- 每新增一張會被既有測試資料 FK 參照的表，回頭檢查所有可能觸及該資料的既有測試檔清理順序（KB-019）
+- E1 全 5 個 Feature 至此皆完成（F1/F2/F4/F5 已做，F3 Google 登入依 05_BACKLOG 排序後移）——平台與信任基座收尾，下一階段可轉往 E2（健檢資料入庫管線）或視 PO 決定回頭處理 KB-018／KB-020
+
+## Sprint 4 — E1-F4：健康專案模組與四層權限鏈（安全基線 🔴）✅
+
+- 期間：2026-07-15（單日完成實作、本機驗證、commit、push、正式站部署驗證）
+- DOR：✅ 通過（sprints/sprint-04-dor.md；A11–A14 由 PO 追認，A15 為實作中新發現）
+- 目標：`projects` CRUD／封存／還原／軟刪除＋四層權限鏈（登入→擁有權→資源屬於專案→未刪除）＋RLS 政策就緒 → **達成，已部署正式站**（`https://health-devkit.zeabur.app/api/projects` 回 401 確認新版上線）
+
+### 驗收結果（AC-1～AC-9；本機真實瀏覽器＋整合測試＋正式站部署驗證）
 | AC | 結果 |
 |---|---|
 | AC-1 | ✅ 整合測試＋瀏覽器實測：建立成功，owner／status/active／version=1 |
@@ -23,11 +56,12 @@
 
 ### DOD 核對
 - [x] 正常／邊緣／錯誤測試通過：Vitest 9 檔／34 test 全綠；`pnpm build` 乾淨過；typecheck／lint 無錯誤
-- [x] 肉眼驗收：本機真實瀏覽器走過建立/改名/封存/還原/刪除全流程＋跨帳號拒絕；PO 正式站驗收待後續
-- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-018/019／SYNC／ROADMAP 已更新；OpenAPI 已補 `/api/projects` 系列
+- [x] 肉眼驗收：本機真實瀏覽器走過建立/改名/封存/還原/刪除全流程＋跨帳號拒絕
+- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-018/019/020／SYNC／ROADMAP 已更新；OpenAPI 已補 `/api/projects` 系列
 - [x] 假設 A11–A14 已於 DOR 追認；本輪新增 A15（實作中發現，見 sprint-04-dor.md）
 - [x] 追加 DOD：四層權限鏈為本輪 P0（AC-6～AC-8）；日誌掃描通過（AC-9）；LLM Streaming N/A
-- [ ] 下一步：PO 審閱本輪產出＋決定是否部署正式站驗收
+- [x] PO 2026-07-15：確認 commit＋push＋正式站部署驗證（`/api/projects` 401 確認新版上線）；KB-018／KB-020 決定暫緩處理
+- [x] 下一步明確：Sprint 5（E1-F5）DOR 已通過，待開工
 
 ### 本輪重大發現（非本輪 bug，但值得記錄）
 1. **RLS BYPASSRLS 發現**（KB-018）：`DATABASE_URL` 連線角色為 Supabase `postgres`，`rolbypassrls=true`，RLS 政策對 app 自身連線不生效；真正防線是應用層四層鏈。修法（另建專用角色）需 PO 確認後才動手，屬正式環境憑證異動。
