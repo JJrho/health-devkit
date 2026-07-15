@@ -14,7 +14,9 @@ export interface AuthAdapter {
     email: string,
     password: string,
     verifyRedirectTo: string,
-  ): Promise<{ userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL">;
+  ): Promise<
+    { userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL" | "EMAIL_RATE_LIMITED"
+  >;
 
   /** 驗證密碼；失敗回 null（呼叫端統一錯誤，不洩漏存在性） */
   verifyPassword(

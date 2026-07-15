@@ -53,5 +53,15 @@
 - 修法：建立 `src/lib/api-handler.ts` 的 `withErrorEnvelope()` wrapper，包住所有 route handler；任何未捕捉例外一律轉統一 500 error envelope（`INTERNAL_ERROR`，訊息不含例外細節，日誌只記 errorName）。可預期的使用者輸入錯誤（如 Email 格式不合法）改在 adapter／service 回結構化結果，不當例外拋出。
 - 未來避免：**新增任何 API route 一律套用 `withErrorEnvelope`**，不要各自寫 try/catch；新的可預期錯誤（Supabase 特定 error.code）評估是否該回結構化結果而非例外。
 
+## KB-011 Supabase 免費方案信件寄送限流（A7 已知限制，實測命中）
+- 類型：接入教訓（Sprint 3，2026-07-13）
+- 內容：多輪診斷測試（重複呼叫 signUp）於短時間內耗盡 Supabase 免費方案的每小時信件配額，之後的 register() 呼叫回 `over_email_send_rate_limit`。這正是 DOR A7 事先標記的已知限制。
+- 修法：`over_email_send_rate_limit` 已在 SupabaseAuthAdapter 結構化為 `EMAIL_RATE_LIMITED` 結果（非例外），API 回 429＋溫和訊息，不再是裸 500。
+- 未來避免：**本機／CI 手動測試註冊流程時節制呼叫次數**，避免佔用配額影響真實使用者；正式對外前必須依 A7 接自有 SMTP。
+
+## 待觀察項：pg-queue-adapter 整合測試偶發性失敗（非本輪程式缺陷）
+- 現象：`pnpm test` 完整套件執行時，`失敗路徑：fail 遞增 retry_count、回 pending 重試（AC-4）` 測試偶爾斷言失敗（retry_count 提前達到 max_retries）；同一測試檔單獨執行、或完整套件重跑，皆穩定通過。研判為測試執行期間某種時序/併發因素導致，非 QueueAdapter 本身邏輯錯誤（Worker 於 Zeabur 雲端已多次實測行為正確，見 Sprint 1/2 SPRINT_LOG）。
+- 處置：Sprint 3 範圍不含 Sprint 1 測試基礎設施排查，暫記待觀察；若未來重現頻率上升或伴隨其他測試檔一起表現異常，再排入對應 Sprint 深入排查。
+
 ## 新紀錄模板
 （依方法論 13.2 節）

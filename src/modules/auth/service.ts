@@ -19,7 +19,12 @@ export type RegisterResult =
   | { ok: true; userId: string }
   | {
       ok: false;
-      code: "EMAIL_EXISTS" | "CONSENT_REQUIRED" | "WEAK_PASSWORD" | "INVALID_EMAIL";
+      code:
+        | "EMAIL_EXISTS"
+        | "CONSENT_REQUIRED"
+        | "WEAK_PASSWORD"
+        | "INVALID_EMAIL"
+        | "EMAIL_RATE_LIMITED";
     };
 
 export type LoginResult =
@@ -56,6 +61,7 @@ export class AuthService {
     );
     if (result === "EMAIL_EXISTS") return { ok: false, code: "EMAIL_EXISTS" };
     if (result === "INVALID_EMAIL") return { ok: false, code: "INVALID_EMAIL" };
+    if (result === "EMAIL_RATE_LIMITED") return { ok: false, code: "EMAIL_RATE_LIMITED" };
 
     const db = getDb();
     await db.insert(users).values({ id: result.userId, email });

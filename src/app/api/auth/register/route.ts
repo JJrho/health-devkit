@@ -62,6 +62,13 @@ export const POST = withErrorEnvelope(async (request, requestId) => {
           400,
           requestId,
         );
+      case "EMAIL_RATE_LIMITED":
+        return apiError(
+          "EMAIL_RATE_LIMITED",
+          "系統寄送驗證信的數量已達暫時上限，請稍後再試（通常數十分鐘內恢復）。",
+          429,
+          requestId,
+        );
     }
   }
 

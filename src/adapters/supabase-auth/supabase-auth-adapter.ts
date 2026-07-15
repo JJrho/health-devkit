@@ -29,16 +29,22 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     email: string,
     password: string,
     verifyRedirectTo: string,
-  ): Promise<{ userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL"> {
+  ): Promise<
+    { userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL" | "EMAIL_RATE_LIMITED"
+  > {
     const { data, error } = await this.anon.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: verifyRedirectTo },
     });
     if (error) {
-      // 可預期的使用者輸入錯誤：回結構化結果，不當例外處理
+      // 可預期的使用者輸入錯誤／限流：回結構化結果，不當例外處理
       if (error.code === "email_address_invalid" || error.code === "validation_failed") {
         return "INVALID_EMAIL";
+      }
+      // 免費方案信件寄送限流（A7 已知限制，非程式錯誤）
+      if (error.code === "over_email_send_rate_limit") {
+        return "EMAIL_RATE_LIMITED";
       }
       throw new Error(`註冊失敗：${error.code ?? "unknown"}`);
     }
