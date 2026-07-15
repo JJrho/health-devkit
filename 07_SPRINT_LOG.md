@@ -1,12 +1,12 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 5 實作完成、本機驗證通過（2026-07-15）——**E1-F5 個人健康背景模組（E1 平台與信任基座全數結案，Feature 4/20）**，尚待 commit／push／正式站部署驗證。
+> 目前狀態：Sprint 5 ✅ 完成（2026-07-15）——**E1-F5 個人健康背景模組結案（Feature 4/20，E1 平台與信任基座全數完成）**，已 commit（`02dd80a`）＋push＋正式站部署驗證通過。下一階段：轉往 E2（健檢資料入庫管線）或補做 E1-F3（Google 登入），待 PO 決定。
 
-## Sprint 5 — E1-F5：個人健康背景模組 🟡 待 commit／部署
+## Sprint 5 — E1-F5：個人健康背景模組 ✅
 
-- 期間：2026-07-15（單日完成實作與本機驗證）
+- 期間：2026-07-15（單日完成實作、本機驗證、commit、push、正式站部署驗證）
 - DOR：✅ 通過（sprints/sprint-05-dor.md；A16–A17 由 PO 追認）
-- 目標：`health_profiles` jsonb＋autosave＋OCC＋四層鏈第 3 層「資源屬於專案」 → **實作與本機驗證達成，尚未部署正式站**
+- 目標：`health_profiles` jsonb＋autosave＋OCC＋四層鏈第 3 層「資源屬於專案」 → **達成，已部署正式站**（`https://health-devkit.zeabur.app/api/projects/{id}/profile` 回 401 確認新版上線）
 
 ### 驗收結果（AC-1～AC-8；整合測試＋真實瀏覽器＋curl 驗證）
 | AC | 結果 |
@@ -26,7 +26,8 @@
 - [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-019 更新／SYNC／ROADMAP 已更新；OpenAPI 已補 `/api/projects/{id}/profile`
 - [x] 假設 A16–A17 已於 DOR 追認；本輪無新增 A 編號
 - [x] 追加 DOD：四層權限鏈第 3 層為本輪 P0（AC-4）；日誌掃描為 P0 中的 P0（AC-8，首次真正儲存健康內容）；LLM Streaming N/A
-- [ ] 下一步：PO 確認 commit／push／正式站部署驗證時機
+- [x] PO 2026-07-15：確認 commit（`02dd80a`）＋push＋正式站部署驗證通過
+- [x] 下一步明確：E1 全數完成，下一階段轉往 E2 或補 E1-F3，待 PO 決定
 
 ### 本輪修正的測試基礎設施回歸
 新增 `health_profiles` 表後，`projects-service.test.ts` 原本的 `afterAll` 直接刪 `projects` 未先清新表 `health_profiles`，被 FK 擋下（`profiles-service.test.ts` 沿用同網域建立真實 projects 觸發）。修正：`projects-service.test.ts` 清理邏輯改為先查出使用者名下所有 projects、逐一清 `health_profiles` 後才刪 `projects`。已更新 KB-019：**任何刪除某表的清理邏輯，都必須先刪光所有 FK 參照它的表——包含當下還不存在、之後才新增的表**，網域區隔只能防「不同測試檔互相誤刪」，防不了「同一批使用者底下新表接舊表的 FK 鏈」。

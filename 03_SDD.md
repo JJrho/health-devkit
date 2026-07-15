@@ -127,7 +127,7 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E1-F4 健康專案模組與四層權限鏈完成（2026-07-15，Sprint 4，Feature 3/20）**：`projects` 表＋CRUD＋封存/還原/軟刪除＋OCC 樂觀鎖（首次落地 VERSION_CONFLICT）＋四層權限鏈（`src/modules/projects`）皆已完成，用真實瀏覽器＋跨帳號 session 手動驗證通過（403/401 語意區分、稽核 log）；typecheck／lint／`pnpm build`／34 個單元＋整合測試全綠；已 commit（`1d4da9e`）＋push＋正式站部署驗證通過。⚠️ RLS 政策已建立但因連線角色 BYPASSRLS 尚未實際生效（KB-018）；另發現 E1-F2 遺留問題——全新未驗證帳號目前無法登入，與 C6 牴觸（KB-020）。PO 2026-07-15 決定兩者皆暫緩、記錄為已知限制。細節見 07_SPRINT_LOG。
 
-**E1-F5 個人健康背景模組完成（2026-07-15，Sprint 5，Feature 4/20，E1 全數結案）**：`health_profiles` 表（jsonb 承接上游 §11.1／§12.2 共 20 欄位）＋`GET`/`PUT` autosave＋OCC 樂觀鎖＋四層鏈第 3 層「資源屬於專案」首次真正落地並驗證（同一使用者的兩個專案，背景資料互相隔離）。真實瀏覽器驗證：autosave 生效、續編（重新整理後資料保留）、跨帳號 403＋稽核 log 不含健康內容。typecheck／lint／`pnpm build`／41 個單元＋整合測試全綠。過程修正一則測試基礎設施回歸（KB-019 更新：`projects-service.test.ts` 清理邏輯需先清新表 `health_profiles` 才能刪 `projects`）。尚待：commit／push／正式站部署驗證。
+**E1-F5 個人健康背景模組完成（2026-07-15，Sprint 5，Feature 4/20，E1 全數結案）**：`health_profiles` 表（jsonb 承接上游 §11.1／§12.2 共 20 欄位）＋`GET`/`PUT` autosave＋OCC 樂觀鎖＋四層鏈第 3 層「資源屬於專案」首次真正落地並驗證（同一使用者的兩個專案，背景資料互相隔離）。真實瀏覽器驗證：autosave 生效、續編（重新整理後資料保留）、跨帳號 403＋稽核 log 不含健康內容。typecheck／lint／`pnpm build`／41 個單元＋整合測試全綠。過程修正一則測試基礎設施回歸（KB-019 更新：`projects-service.test.ts` 清理邏輯需先清新表 `health_profiles` 才能刪 `projects`）。已 commit（`02dd80a`）＋push＋正式站部署驗證通過。E1 平台與信任基座至此全數完成（F1/F2/F4/F5；F3 Google 登入依規劃後移）。下一階段：轉往 E2（健檢資料入庫管線）或補做 E1-F3，待 PO 決定。
 
 ## 16. 相關文件索引
 
