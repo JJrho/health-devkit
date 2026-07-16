@@ -1,12 +1,12 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 6 實作完成、本機＋真實 Storage 驗證通過（2026-07-16）——**E2-F1 上傳會話與預覽模組**，尚待 commit／push／正式站部署驗證。
+> 目前狀態：Sprint 6 ✅ 完成（2026-07-16）——**E2-F1 上傳會話與預覽模組結案（Feature 5/20）**，已 commit（`b2b413f`）＋push＋正式站部署驗證通過。下一個：PO 決定是否開工 E2-F2（PDF 解析管線，本案第一個 🔴 PoC Feature）。
 
-## Sprint 6 — E2-F1：上傳會話與預覽模組 🟡 待 commit／部署
+## Sprint 6 — E2-F1：上傳會話與預覽模組 ✅
 
-- 期間：2026-07-15～16（單日跨夜完成實作與驗證）
+- 期間：2026-07-15～16（單日跨夜完成實作、驗證、commit、push、正式站部署驗證）
 - DOR：✅ 通過（sprints/sprint-06-dor.md；A18–A21 由 PO 追認）
-- 目標：StorageAdapter 實作＋`documents` 上傳會話＋C12/C13 業務規則＋四層鏈第 3 層於有獨立 id 巢狀資源上生效 → **達成，範圍明確止於 uploaded 狀態（解析屬 E2-F2）**
+- 目標：StorageAdapter 實作＋`documents` 上傳會話＋C12/C13 業務規則＋四層鏈第 3 層於有獨立 id 巢狀資源上生效 → **達成，已部署正式站**（`https://health-devkit.zeabur.app/api/projects/{id}/documents` 回 401 確認新版上線），範圍明確止於 uploaded 狀態（解析屬 E2-F2）
 
 ### 驗收結果（AC-1～AC-11；整合測試＋對真實 Supabase Storage 的 curl／瀏覽器驗證）
 | AC | 結果 |
@@ -28,7 +28,8 @@
 - [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-021／SYNC／ROADMAP 已更新；OpenAPI 已補文件系列端點
 - [x] 假設 A18–A21 已於 DOR 追認；本輪無新增 A 編號
 - [x] 追加 DOD：四層權限鏈第 3 層為本輪 P0（AC-7）；日誌掃描為 P0（AC-11，檔名比 E1-F5 的 `data` 欄位更基本的隱私）；LLM Streaming N/A
-- [ ] 下一步：PO 確認 commit／push／正式站部署驗證時機
+- [x] PO 2026-07-16：確認 commit（`b2b413f`）＋push＋正式站部署驗證通過
+- [x] 下一步明確：PO 決定是否開工 E2-F2（PDF 解析管線），或先處理 KB-018/KB-020/KB-021
 
 ### 本輪工程筆記
 - 需要為 `StorageAdapter` 介面新增 `getObject`（讀回分段供 complete 時串接），Sprint 1 定義的介面未預見這個需求，屬正常的介面隨實作演進
