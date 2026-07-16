@@ -1,6 +1,46 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 5 ✅ 完成（2026-07-15）——**E1-F5 個人健康背景模組結案（Feature 4/20，E1 平台與信任基座全數完成）**，已 commit（`02dd80a`）＋push＋正式站部署驗證通過。下一階段：轉往 E2（健檢資料入庫管線）或補做 E1-F3（Google 登入），待 PO 決定。
+> 目前狀態：Sprint 6 實作完成、本機＋真實 Storage 驗證通過（2026-07-16）——**E2-F1 上傳會話與預覽模組**，尚待 commit／push／正式站部署驗證。
+
+## Sprint 6 — E2-F1：上傳會話與預覽模組 🟡 待 commit／部署
+
+- 期間：2026-07-15～16（單日跨夜完成實作與驗證）
+- DOR：✅ 通過（sprints/sprint-06-dor.md；A18–A21 由 PO 追認）
+- 目標：StorageAdapter 實作＋`documents` 上傳會話＋C12/C13 業務規則＋四層鏈第 3 層於有獨立 id 巢狀資源上生效 → **達成，範圍明確止於 uploaded 狀態（解析屬 E2-F2）**
+
+### 驗收結果（AC-1～AC-11；整合測試＋對真實 Supabase Storage 的 curl／瀏覽器驗證）
+| AC | 結果 |
+|---|---|
+| AC-1／AC-2 | ✅ 整合測試（TDD 種子）：建立會話；同 idempotencyKey 冪等，不建立第二筆 |
+| AC-3 | ✅ 整合測試＋真實 Storage 實測：完整流程成功，PDF 內容通過驗證；下載 signed URL 內容與原檔一致（594 bytes，`%PDF` header 正確） |
+| AC-4 | ✅ 整合測試：偽造副檔名但內容不符回 `FILE_TYPE_NOT_SUPPORTED`，狀態轉 `upload_failed` |
+| AC-5 | ✅ 整合測試：PDF 超過 30 頁、檔案超過 20MB 皆回 `FILE_TOO_LARGE`；另補測「失敗後換檔重試同一會話可成功」 |
+| AC-6 | ✅ 整合測試：專案 200 份文件上限，第 201 筆遭拒 |
+| AC-7（四層鏈第 3 層，本輪關鍵） | ✅ 整合測試：文件存在專案 A，用專案 B 的 id 一律 `PROJECT_ACCESS_DENIED`，即使 A、B 皆本人所有 |
+| AC-8 | ✅ 整合測試＋真實 curl：跨帳號 403＋稽核 log；未驗證帳號建立會話回 `EMAIL_VERIFICATION_REQUIRED`（C6 閘，真實 Supabase 帳號實測） |
+| AC-9 | ✅ 整合測試：取消後同 idempotencyKey 可重新上傳成功 |
+| AC-10 | ✅ 整合測試＋真實驗證：signed URL 可下載且內容正確；刪除後同一 URL 變 400，確認 Storage 物件真的被移除 |
+| AC-11 | ✅ 整合測試＋真實 log 檢查：稽核 log 僅含識別碼，不含檔名 |
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 11 檔／54 test 全綠；`pnpm build` 乾淨過；typecheck／lint 無錯誤
+- [x] 肉眼驗收：真實 Supabase Storage 端到端驗證（非僅假 adapter）；UI 列表/預覽/刪除按鈕邏輯以真實資料驗證
+- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-021／SYNC／ROADMAP 已更新；OpenAPI 已補文件系列端點
+- [x] 假設 A18–A21 已於 DOR 追認；本輪無新增 A 編號
+- [x] 追加 DOD：四層權限鏈第 3 層為本輪 P0（AC-7）；日誌掃描為 P0（AC-11，檔名比 E1-F5 的 `data` 欄位更基本的隱私）；LLM Streaming N/A
+- [ ] 下一步：PO 確認 commit／push／正式站部署驗證時機
+
+### 本輪工程筆記
+- 需要為 `StorageAdapter` 介面新增 `getObject`（讀回分段供 complete 時串接），Sprint 1 定義的介面未預見這個需求，屬正常的介面隨實作演進
+- 一次性建立私有 Storage bucket：`scripts/setup-storage.ts`（冪等，可重跑）
+- 新增 `pdf-lib` 依賴（僅用於算頁數，不做內容解析）
+- 重試設計：內容驗證失敗（`upload_failed`）與網路中斷（`uploading`）皆視為可重試狀態，允許換檔用同一會話重新完成——比原 DOR 設想更寬鬆，換檔即可用同一 idempotencyKey 修正
+- 沿用 KB-019 教訓：新表 `documents` 上線前主動檢查並修正 `projects-service.test.ts`／`profiles-service.test.ts` 的 `afterAll` 清理順序，未再踩雷
+- 瀏覽器沙盒環境對 `window.open`（預覽新分頁）似乎有已知限制，曾讓分頁卡死；改用真實 curl 對 Supabase Storage 直接驗證預覽/刪除更可靠，不影響功能正確性判斷
+
+### 給下一個 Sprint 的具體提醒
+- E2-F2（PDF 解析管線）開工前，先讀 KB-021（惡意檔案掃描缺口）決定是否要提前處理
+- 任何新表若會被 `@projects.test.invalid` 系列測試建立且有 FK 參照，記得檢查所有既有測試檔的 `afterAll`（KB-019）
 
 ## Sprint 5 — E1-F5：個人健康背景模組 ✅
 

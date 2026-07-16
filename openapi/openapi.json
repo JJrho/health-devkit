@@ -139,6 +139,70 @@
         }
       }
     },
+    "/api/projects/{id}/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "summary": "文件列表（排除已刪除）",
+        "responses": {
+          "200": { "description": "items" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/upload-sessions": {
+      "post": {
+        "operationId": "createUploadSession",
+        "summary": "建立上傳會話（AC-1／AC-2；同 idempotencyKey 冪等；C6 未驗證鎖定；C12 份數上限）",
+        "responses": {
+          "200": { "description": "document（status=uploading）" },
+          "400": { "description": "INVALID_REQUEST／DOCUMENT_QUOTA_EXCEEDED（ErrorEnvelope）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED／EMAIL_VERIFICATION_REQUIRED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/parts/{partNumber}": {
+      "put": {
+        "operationId": "uploadPart",
+        "summary": "上傳分段（AC-3；同號覆寫，天然支援重試）",
+        "responses": {
+          "200": { "description": "已收到" },
+          "400": { "description": "INVALID_REQUEST（會話非 uploading 狀態）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/complete": {
+      "post": {
+        "operationId": "completeUpload",
+        "summary": "完成上傳（AC-3～AC-5；串接分段、驗證實際內容、大小/頁數）",
+        "responses": {
+          "200": { "description": "document（status=uploaded）" },
+          "400": { "description": "FILE_TOO_LARGE／FILE_TYPE_NOT_SUPPORTED／FILE_CORRUPTED（ErrorEnvelope）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}": {
+      "delete": {
+        "operationId": "deleteDocument",
+        "summary": "取消或刪除（AC-9；皆軟刪除，同 idempotencyKey 可重傳）",
+        "responses": {
+          "200": { "description": "document（status=deleted）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/preview": {
+      "get": {
+        "operationId": "getDocumentPreview",
+        "summary": "短效 signed URL（AC-10；憲法 §4：不入日誌）",
+        "responses": {
+          "200": { "description": "url" },
+          "400": { "description": "INVALID_REQUEST（尚未完成上傳）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",
