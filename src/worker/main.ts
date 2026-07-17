@@ -42,9 +42,6 @@ async function tick(queue: PgQueueAdapter): Promise<void> {
     });
   } catch (error) {
     const errorName = error instanceof Error ? error.constructor.name : "UnknownError";
-    // TEMP DIAG（Sprint 8 部署驗證用，查完即移除）：繞過 logger 白名單，
-    // 直接印出通用基礎設施錯誤訊息（非健康內容），僅供本次診斷，不落 DB。
-    console.error("[TEMP-DIAG]", error instanceof Error ? error.message : error);
     await queue.fail(job.id, errorName);
     logger.error("工作失敗", {
       requestId,
