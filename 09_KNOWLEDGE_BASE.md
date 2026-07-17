@@ -159,5 +159,18 @@
 - 已知殘留限制：若黏合後的殘留字串**語法上恰好合法**（如 `"14290-135"` 沒有單位字尾、看起來就是個普通區間），純規則驗證無法分辨這是巧合還是真正的區間——這是資訊遺失造成的根本限制，任何純字串規則都無法完全解決，需要真正的表格結構辨識或 OCR 才可能突破。
 - 未來避免／應用：任何依賴 pdfjs（或其他 PDF 文字抽取函式庫）座標做結構化解析的功能，開工前應先用類似的合成探測腳本量測該函式庫的實際合併行為，不要依賴「聽起來合理」的假設直接動手改程式碼——這正是 Sprint 8 一開始 DOR 訂的 A26 方向（依 x 間距重新拼接 item）被實測推翻、改採內容驗證的直接教訓。
 
+## KB-025 Worker service 缺少 SUPABASE_URL 環境變數，導致 parse-document 全面失敗
+- 類型：部署缺口（Sprint 8，2026-07-17，部署驗證時發現）
+- 內容：Sprint 8 部署後，正式站 worker 對**任何**文件的解析工作都失敗（重試 3 次全敗），包括跟 Sprint 7 驗證過的樣式完全相同的簡單合成 PDF——不是內容問題，是環境問題。本機用完全相同的程式碼與資料可成功處理，證明不是邏輯錯誤。加臨時診斷 log（繞過 logger 白名單、只印通用基礎設施錯誤訊息，非健康內容）重新部署一次後，抓到真正原因：**worker service 缺少 `SUPABASE_URL` 環境變數**（`src/lib/env.ts` 的 `requireEnv` 直接拋錯）。已補上（值與 web service 的 `NEXT_PUBLIC_SUPABASE_URL` 相同，屬非機密值，見 `.env.example` 註解）。
+- 影響範圍：目前不確定此變數是何時遺失的（Sprint 7 當時 worker 明確能正常存取 Storage，代表當時是有的）；不排除是先前某次 Zeabur 環境變數操作時意外遺漏，需列入待查但非本輪阻塞項。
+- 未來避免：**部署驗證不能只看 `deployment list` 狀態轉 `RUNNING` 或 `/api/health` 200 就結案**——這兩者都只證明服務「有啟動」，不證明「功能正常」。有實際跑得動的工作管線（如本案的 parse-document）時，應該像本輪最後做的一樣，跑一次真實資料的端到端功能驗證，才能抓到這類「服務健康但功能壞掉」的缺口。
+
+## KB-026 第四次意外機密外洩：`zeabur variable create/update` 指令本身會印出完整變數表
+- 類型：安全事故＋規則強化（Sprint 8，2026-07-17）
+- 內容：診斷 KB-025 時需要幫 worker 補上 `SUPABASE_URL`，執行 `zeabur variable create --id <worker> -k "SUPABASE_URL=..."` 並用 `grep -v` 過濾掉自己新增的那個值——但沒想到 **CLI 執行成功後會主動印出該 service「整個現有變數表」作為確認訊息**，把跟本次操作完全無關的既有機密（`PASSWORD`、`SUPABASE_SERVICE_ROLE_KEY`）也一併印了出來，grep 過濾只堵住了預期中的值，沒堵住這個非預期的副作用。這是本專案第 4 次意外機密外洩（Sprint 3 三次，記於 07_SPRINT_LOG「三次意外機密外洩」；本次為第 4 次），且與 Sprint 3 的「Zeabur CLI 變數列表輸出未完整遮蔽」是**同一種失誤模式**——舊規則只點名 `zeabur variable list`，沒有涵蓋 `create`／`update` 也有相同副作用，導致規則被字面遵守但精神被違反。
+- **已完成處置**：`SUPABASE_SERVICE_ROLE_KEY` 與資料庫密碼（`PASSWORD`／`DATABASE_URL`）皆已由 PO 於 Supabase 後台重新產生，新值已同步更新至 web／worker 兩 service，兩 service 依序重啟並確認 `/api/health` 穩定、worker 端到端功能驗證通過，本機 `.env` 也已用腳本同步更新（未使用 Read／cat 等會顯示內容的工具）。
+- **規則強化（已寫入 CLAUDE.md）**：不再只禁止 `zeabur variable list`，而是**禁止直接執行任何 `zeabur variable create／update／delete` 指令並直接查看其標準輸出**——這類指令一律先把整個輸出重導向到檔案，再用 `grep -c` 之類只回傳數字／布林的方式確認成功與否，讀完立刻刪除該檔案，永不用 Read／cat／不帶重導向的方式查看。
+- 未來避免：任何「這個工具的正常回應可能夾帶非預期內容」的假設都要當作真的會發生來設計防線，不能靠「先設想它會印什麼、只過濾那個」的方式防禦——應該預設**指令的標準輸出整體不可信任**，只透過重導向＋窄範圍二次查詢取得必要資訊。
+
 ## 新紀錄模板
 （依方法論 13.2 節）
