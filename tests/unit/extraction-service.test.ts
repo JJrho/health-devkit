@@ -4,10 +4,18 @@ import { eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
-import { documents, extractedItems, users } from "@/db/schema";
+import { documents, extractedItemEdits, extractedItems, users } from "@/db/schema";
 import { createProject } from "@/modules/projects";
 import { completeUpload, createUploadSession, uploadPart } from "@/modules/documents";
-import { listExtractedItems, reprocessDocument, runExtraction } from "@/modules/extraction";
+import {
+  confirmDocument,
+  createExtractedItem,
+  deleteExtractedItem,
+  listExtractedItems,
+  reprocessDocument,
+  runExtraction,
+  updateExtractedItem,
+} from "@/modules/extraction";
 import { cleanupTestData } from "./helpers/cleanup-test-data";
 
 /**
@@ -228,6 +236,302 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
     );
 
     await runExtraction(storage, documentId);
+
+    const output = infoSpy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(output).not.toContain("WBC");
+    expect(output).not.toContain("6.2");
+    infoSpy.mockRestore();
+  });
+
+  // ── E2-F3：人工確認與入庫（Sprint 9，AC-1～AC-13） ──
+
+  it("AC-1／AC-2：PATCH 編輯內容 → 寫入異動歷史、status=edited、version+1；帶舊 version 回 VERSION_CONFLICT", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 編輯測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    const wbc = items.find((item) => item.rawTestName === "WBC")!;
+
+    const result = await updateExtractedItem(ownerId, project.id, documentId, wbc.id, {
+      version: wbc.version,
+      rawValue: "6.3",
+    });
+    expect(result.ok && result.item.rawValue).toBe("6.3");
+    expect(result.ok && result.item.status).toBe("edited");
+    expect(result.ok && result.item.version).toBe(wbc.version + 1);
+
+    const history = await getDb()
+      .select()
+      .from(extractedItemEdits)
+      .where(eq(extractedItemEdits.extractedItemId, wbc.id));
+    expect(history).toHaveLength(1);
+    expect(history[0]?.previousRawValue).toBe("6.2"); // 原值保留（憲法 §4）
+
+    const staleRetry = await updateExtractedItem(ownerId, project.id, documentId, wbc.id, {
+      version: wbc.version, // 已過期
+      rawValue: "9.9",
+    });
+    expect(staleRetry).toEqual({ ok: false, code: "VERSION_CONFLICT" });
+  });
+
+  it("AC-3：PATCH 純狀態變更（accepted，無欄位變更）→ 不寫入異動歷史", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 接受測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    const wbc = items.find((item) => item.rawTestName === "WBC")!;
+
+    const result = await updateExtractedItem(ownerId, project.id, documentId, wbc.id, {
+      version: wbc.version,
+      status: "accepted",
+    });
+    expect(result.ok && result.item.status).toBe("accepted");
+
+    const history = await getDb()
+      .select()
+      .from(extractedItemEdits)
+      .where(eq(extractedItemEdits.extractedItemId, wbc.id));
+    expect(history).toHaveLength(0);
+  });
+
+  it("AC-4：PATCH status=rejected → 列本身保留，不刪除", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 拒絕測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    const vitaminD = items.find((item) => item.rawTestName.includes("Vitamin"))!;
+
+    const result = await updateExtractedItem(ownerId, project.id, documentId, vitaminD.id, {
+      version: vitaminD.version,
+      status: "rejected",
+    });
+    expect(result.ok && result.item.status).toBe("rejected");
+
+    const stillThere = await getDb()
+      .select()
+      .from(extractedItems)
+      .where(eq(extractedItems.id, vitaminD.id));
+    expect(stillThere).toHaveLength(1);
+  });
+
+  it("AC-5：手動新增候選列（review_required 才允許）", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 新增測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+
+    const result = await createExtractedItem(ownerId, project.id, documentId, {
+      rawTestName: "Glucose",
+      rawValue: "95",
+      rawUnit: "mg/dL",
+    });
+    expect(result.ok && result.item.status).toBe("accepted");
+    expect(result.ok && result.item.confidence).toBe(1.0);
+
+    // 文件已 processing_failed（非 review_required）時不得手動新增
+    const blankDocId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeBlankPdf(),
+    );
+    await runExtraction(storage, blankDocId);
+    const blocked = await createExtractedItem(ownerId, project.id, blankDocId, {
+      rawTestName: "Glucose",
+      rawValue: "95",
+    });
+    expect(blocked).toEqual({ ok: false, code: "INVALID_REQUEST" });
+  });
+
+  it("AC-6：DELETE 徹底移除候選列", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 刪除測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    const wbc = items.find((item) => item.rawTestName === "WBC")!;
+
+    const result = await deleteExtractedItem(ownerId, project.id, documentId, wbc.id);
+    expect(result).toEqual({ ok: true });
+
+    const remaining = await getDb().select().from(extractedItems).where(eq(extractedItems.id, wbc.id));
+    expect(remaining).toHaveLength(0);
+  });
+
+  it("AC-7／AC-8：確認 transaction——有未處理列時擋下，全部處理完才成功並轉 confirmed", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 確認測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+
+    const blocked = await confirmDocument(ownerId, project.id, documentId);
+    expect(blocked).toEqual({ ok: false, code: "PENDING_REVIEW_ITEMS" });
+
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    for (const item of items) {
+      await updateExtractedItem(ownerId, project.id, documentId, item.id, {
+        version: item.version,
+        status: "accepted",
+      });
+    }
+
+    const confirmed = await confirmDocument(ownerId, project.id, documentId);
+    expect(confirmed).toEqual({ ok: true });
+
+    const [document] = await getDb().select().from(documents).where(eq(documents.id, documentId));
+    expect(document?.status).toBe("confirmed");
+  });
+
+  it("AC-8 延伸：文件已 confirmed 後，候選列鎖定，PATCH／DELETE 一律 INVALID_REQUEST", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 鎖定測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    for (const item of items) {
+      await updateExtractedItem(ownerId, project.id, documentId, item.id, {
+        version: item.version,
+        status: "accepted",
+      });
+    }
+    await confirmDocument(ownerId, project.id, documentId);
+
+    const confirmedItems = await getDb()
+      .select()
+      .from(extractedItems)
+      .where(eq(extractedItems.documentId, documentId));
+    const target = confirmedItems[0]!;
+
+    expect(
+      await updateExtractedItem(ownerId, project.id, documentId, target.id, {
+        version: target.version,
+        status: "rejected",
+      }),
+    ).toEqual({ ok: false, code: "INVALID_REQUEST" });
+    expect(await deleteExtractedItem(ownerId, project.id, documentId, target.id)).toEqual({
+      ok: false,
+      code: "INVALID_REQUEST",
+    });
+  });
+
+  it("AC-10（四層鏈重用）：編輯／刪除／確認皆跨專案一律 PROJECT_ACCESS_DENIED", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const projectA = await createProject(ownerId, "E2-F3 四層鏈 A");
+    const projectB = await createProject(ownerId, "E2-F3 四層鏈 B");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      projectA.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    const wbc = items.find((item) => item.rawTestName === "WBC")!;
+
+    expect(
+      await updateExtractedItem(ownerId, projectB.id, documentId, wbc.id, {
+        version: wbc.version,
+        status: "accepted",
+      }),
+    ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
+    expect(await deleteExtractedItem(ownerId, projectB.id, documentId, wbc.id)).toEqual({
+      ok: false,
+      code: "PROJECT_ACCESS_DENIED",
+    });
+    expect(await confirmDocument(ownerId, projectB.id, documentId)).toEqual({
+      ok: false,
+      code: "PROJECT_ACCESS_DENIED",
+    });
+    expect(
+      await createExtractedItem(ownerId, projectB.id, documentId, { rawTestName: "X", rawValue: "1" }),
+    ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
+  });
+
+  it("AC-12：日誌不含編輯內容（項目名稱／數值等健康資料）", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const infoSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "E2-F3 日誌測試專案");
+    const documentId = await setupUploadedDocument(
+      storage,
+      queue,
+      ownerId,
+      project.id,
+      await makeLabReportPdf(),
+    );
+    await runExtraction(storage, documentId);
+    const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
+    for (const item of items) {
+      await updateExtractedItem(ownerId, project.id, documentId, item.id, {
+        version: item.version,
+        status: "accepted",
+      });
+    }
+    await confirmDocument(ownerId, project.id, documentId);
 
     const output = infoSpy.mock.calls.map((call) => String(call[0])).join("\n");
     expect(output).not.toContain("WBC");

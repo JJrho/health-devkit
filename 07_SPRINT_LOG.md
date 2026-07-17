@@ -1,6 +1,52 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 8 ✅ 已 commit＋push＋正式站部署驗證通過（2026-07-17）——**E2-F2 文字型 PDF 解析管線 PoC 2/2（準確率調校）**，E2-F2 正式結案。部署驗證過程中發現並修復 worker 環境變數缺口（KB-025），並發生本專案第 4 次意外機密外洩事故，已完成輪替與規則強化（KB-026）。
+> 目前狀態：Sprint 9 ✅ 實作＋驗證＋DOD 全數完成，待 commit／push／部署——**E2-F3：人工確認與入庫模組**。PO 已就 KB-021（惡意檔案掃描）拍板維持原計畫留到 E6-F2。開工前發現並修復了本專案文件系統一個長期缺口：「上游規格」章節引用長期查無實據（KB-027），已找到並補齊真正的完整規格。
+
+## Sprint 9 — E2-F3：人工確認與入庫模組 ✅ DOD 全數完成，待 commit／push／部署
+
+- 期間：2026-07-17（單日完成）
+- DOR：✅ 通過（sprints/sprint-09-dor.md；A36–A39 由 PO 追認）
+- 前置事件：開工前撰寫 DOR 時發現 `archive/` 底下的「上游規格」章節引用（§17／§18.1／§22.4／§28.4 等）長期查無實據——原始檔案從未 commit 過。PO 提供本機留存的完整版（`個人健康檢查管理平台_規格_v1_0_0.md`／`個人健康檢查平台_技術選型_v1_0_0.md`）補進 `archive/upstream_spec/`；另兩份更早期、已被 KB-001／KB-003 推翻的草稿也一併補進 `archive/deprecated_specs/`（詳見 KB-027）。DOR 已依驗證過的原文重寫，比原本自行猜測的版本更精確（如新增了原本漏掉的「手動新增候選列」功能）。
+- 目標：讓使用者對 E2-F2 產出的辨識候選列（`extracted_items`）新增、編輯、接受、拒絕，並透過確認 transaction 把文件狀態鎖定為 `confirmed`（上游 §18.1 狀態機）
+
+### 根因／設計要點
+- **E2-F3／E2-F4 邊界**（上游 §17 逐字確認）：E2-F3 只管理 `extracted_items` 候選列的生命週期（新增／編輯／接受／拒絕／確認），維持 text 型別；別名對應、單位換算、numeric 轉型、`observations` 表是 E2-F4 的範圍。
+- **編輯異動歷史**（A36）：新增 `extracted_item_edits` 表（append-only），每次編輯前先寫入編輯前的原始值，落實憲法 §4「Original values … MUST be preserved forever」，而非原地覆寫＋version 遞增。
+- **確認後鎖定**：實作過程中發現 DOR 草稿本身有個一致性缺口——`createExtractedItem` 已擋 `document.status !== "review_required"`，但 `updateExtractedItem`／`deleteExtractedItem` 原本沒有同樣的檢查。已修正：`findOwnedExtractedItem` 統一檢查文件必須在 `review_required`，confirmed 後的候選列一律鎖定，PATCH／DELETE 回 `INVALID_REQUEST`（新增測試覆蓋，AC-8 延伸）。
+- **DELETE 與 status=rejected 的語意區分**（A37）：DELETE 徹底移除（如手動新增後反悔）；rejected 保留列本身供日後回查——兩者對應不同使用情境，不是同義詞。
+- **確認 transaction 完整性**（A38）：要求文件底下所有候選列皆已到達 `edited`／`accepted`／`rejected` 三者之一才能確認，避免使用者漏看某列。
+
+### 驗收結果（AC-1～AC-13）
+| AC | 結果 |
+|---|---|
+| AC-1／AC-2 | ✅ 整合測試＋瀏覽器端到端驗證：PATCH 編輯內容寫入異動歷史、status=edited、version+1；帶舊 version 回 VERSION_CONFLICT |
+| AC-3 | ✅ 整合測試：純狀態變更（accepted，無欄位變更）不寫入異動歷史 |
+| AC-4 | ✅ 整合測試：status=rejected 列本身保留，不刪除 |
+| AC-5 | ✅ 整合測試＋瀏覽器驗證：手動新增候選列（僅 review_required 允許） |
+| AC-6 | ✅ 整合測試：DELETE 徹底移除候選列 |
+| AC-7／AC-8 | ✅ 整合測試＋瀏覽器端到端驗證：有未處理列時擋下（`PENDING_REVIEW_ITEMS`）；全部處理完才成功並轉 `confirmed`，UI 即時切換為唯讀鎖定畫面 |
+| AC-9 | ✅ 未新增任何提前洩漏未確認資料的路徑（本輪尚無趨勢頁，E3 範圍） |
+| AC-10 | ✅ 整合測試：新增／編輯／刪除／確認四個新端點皆四層鏈重用，跨專案一律 `PROJECT_ACCESS_DENIED` |
+| AC-11 | ✅ 瀏覽器驗證：每列可點擊「第 N 頁」，帶 `#page=N` 網址片段開啟 signed URL 直接跳頁 |
+| AC-12 | ✅ 整合測試：日誌不含候選列內容（項目名稱／數值） |
+| AC-13（KB-021 決定） | ✅ **PO 2026-07-17 決定：維持原計畫，惡意檔案掃描留到 E6-F2**（05_BACKLOG §49 footnote 要求的檢查點已完成，不提前） |
+
+### 端到端驗證（合成資料，非真實個資）
+用 `pdf-lib` 合成 PDF（WBC 清楚列＋Vitamin D 低信心列）走完整真實管線（真實 Supabase Storage／Worker／UI），瀏覽器操作驗證：編輯 WBC 數值（6.2→6.3，狀態轉「已編輯」）→ 接受 Vitamin D（狀態轉「已接受」）→ 確認按鈕原本停用並顯示提示，全部列處理完後啟用 → 按下確認 → 文件狀態即時轉「已確認」，畫面切換為唯讀（編輯／接受／拒絕／刪除／新增／確認按鈕全部消失，僅保留唯讀表格）。驗證完成後依既有隱私協定清除測試帳號、專案、文件、候選列、異動歷史與 Storage 物件；暫存腳本已刪除，未留存於 repo。
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 全專案 84 test／14 檔全綠（+9 新測試）；`pnpm build` 乾淨過；typecheck／lint 無新增錯誤
+- [x] 肉眼驗收：合成資料走完整真實管線＋瀏覽器互動驗證（編輯／接受／確認／唯讀鎖定），非僅單元測試
+- [x] 修正皆反映於規格與文件：本節＋SDD §15／SYNC／ROADMAP 已更新；OpenAPI 已補新增／編輯／刪除／確認端點
+- [x] 假設 A36–A39 已於 DOR 追認；實作中發現並修正 DOR 未言明的一致性缺口（confirmed 文件鎖定），已如實記錄於上方「根因／設計要點」
+- [x] 四層權限鏈：新端點皆重用（AC-10）；日誌掃描 P0（AC-12）；LLM Streaming N/A
+- [x] 真實個資處理：本輪未使用任何真實 PHI，端到端驗證用純合成資料；測試帳號/專案/文件/候選列/異動歷史/Storage 物件測完即清除
+- [x] PO 2026-07-17：KB-021（AC-13）決定——維持原計畫留到 E6-F2，不提前
+- [ ] 下一步：PO 決定 commit／push／部署時機；E2-F3 結案後開 Sprint 10（E2-F4：標準化與正式紀錄模組）DOR
+
+### 本輪工程筆記
+- 找到「消失的上游規格」是本輪最重要的非功能性產出（KB-027）——8 個 Sprint 以來，本專案文件系統對「上游規格 §X」的引用長期查無實據，只是沒人逐字核對過。這次撰寫 DOR 時堅持「查不到原文就不能引用」的紀律，才逼出這個發現。教訓：專案初期若有「口頭/本機存在但未 commit」的關鍵文件，應在骨架建立當下就一併 commit。
+- `findOwnedExtractedItem` 的 `review_required` 鎖定檢查是實作過程中才發現的缺口，不是 DOR 原本明文要求的 AC——這提醒了「範圍排除」寫的是「不做什麼」，不代表遺漏的「應該做但沒寫清楚」的一致性要求會自動被檔下；DOR 通過不等於設計已經完備，實作階段仍要保持警覺。
 
 ## Sprint 8 — E2-F2：文字型 PDF 解析管線（PoC 2/2，準確率調校）✅ 已 commit＋push＋正式站部署驗證通過
 

@@ -15,4 +15,4 @@
 8. 因不良反應停止的計畫不可自動重啟
 
 ## Edge / Abuse 母清單
-見 archive/ 上游規格 §30（23 項）與 §31（14 項），拆 Sprint 時逐項對應到 Feature。
+見 archive/upstream_spec/個人健康檢查管理平台_規格_v1_0_0.md §30（Edge Cases）與 §31（Abuse Cases），拆 Sprint 時逐項對應到 Feature。

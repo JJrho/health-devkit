@@ -1,15 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import type { QueueAdapter, StorageAdapter } from "@/adapters";
 import { getDb } from "@/db/client";
-import { documents, extractedItems } from "@/db/schema";
+import { documents, extractedItemEdits, extractedItems } from "@/db/schema";
 import { logger } from "@/lib/logger";
-import { findOwnedDocument } from "@/modules/documents";
+import { findOwnedDocument, type DocumentRow } from "@/modules/documents";
 import { extractCandidatesFromPage, type TextItem } from "./parser";
 
 export type ExtractedItemRow = typeof extractedItems.$inferSelect;
 
 /** C14：信心值門檻，< 0.85 標示待確認 */
 const CONFIDENCE_THRESHOLD = 0.85;
+
 
 /**
  * PoC 解析核心（A22：pdfjs-dist 伺服器端文字＋座標抽取，已驗證可行）。
@@ -128,5 +129,211 @@ export async function reprocessDocument(
     .set({ status: "processing", updatedAt: new Date() })
     .where(eq(documents.id, document.id));
   await queue.enqueue({ type: "parse-document", payload: { documentId: document.id } });
+  return { ok: true };
+}
+
+/**
+ * 四層鏈重用＋確認候選列確實屬於該文件（避免跨文件 id 亂猜）。
+ * 文件必須仍在 review_required——一旦 confirmed，候選列即鎖定，不得再透過本組
+ * 端點編輯／刪除（要修改需先走 reprocess 轉回 review_required，非本輪範圍，見 A38）。
+ */
+async function findOwnedExtractedItem(
+  userId: string,
+  projectId: string,
+  documentId: string,
+  extractedItemId: string,
+): Promise<
+  | { ok: true; document: DocumentRow; item: ExtractedItemRow }
+  | { ok: false; code: "PROJECT_ACCESS_DENIED" | "NOT_FOUND" | "INVALID_REQUEST" }
+> {
+  const document = await findOwnedDocument(userId, projectId, documentId);
+  if (!document) return { ok: false, code: "PROJECT_ACCESS_DENIED" };
+  if (document.status !== "review_required") return { ok: false, code: "INVALID_REQUEST" };
+
+  const rows = await getDb()
+    .select()
+    .from(extractedItems)
+    .where(and(eq(extractedItems.id, extractedItemId), eq(extractedItems.documentId, document.id)))
+    .limit(1);
+  if (!rows[0]) return { ok: false, code: "NOT_FOUND" };
+  return { ok: true, document, item: rows[0] };
+}
+
+/**
+ * 上游 §28.4「可新增」（AC-5）：AI 漏掉某列檢驗數據時，使用者手動輸入。
+ * 手動輸入視同使用者已確認正確，status 直接為 accepted，不經信心值流程；
+ * 文件必須在 review_required（尚在審查階段）才能新增，避免對已確認文件動手腳。
+ */
+export async function createExtractedItem(
+  userId: string,
+  projectId: string,
+  documentId: string,
+  input: {
+    rawTestName: string;
+    rawValue: string;
+    rawUnit?: string | null;
+    rawReferenceRange?: string | null;
+    pageNumber?: number;
+  },
+): Promise<
+  | { ok: true; item: ExtractedItemRow }
+  | { ok: false; code: "PROJECT_ACCESS_DENIED" | "INVALID_REQUEST" }
+> {
+  const document = await findOwnedDocument(userId, projectId, documentId);
+  if (!document) return { ok: false, code: "PROJECT_ACCESS_DENIED" };
+  if (document.status !== "review_required") return { ok: false, code: "INVALID_REQUEST" };
+  if (!input.rawTestName.trim() || !input.rawValue.trim()) {
+    return { ok: false, code: "INVALID_REQUEST" };
+  }
+
+  const rows = await getDb()
+    .insert(extractedItems)
+    .values({
+      documentId: document.id,
+      rawTestName: input.rawTestName,
+      rawValue: input.rawValue,
+      rawUnit: input.rawUnit ?? null,
+      rawReferenceRange: input.rawReferenceRange ?? null,
+      confidence: 1.0,
+      pageNumber: input.pageNumber ?? 1,
+      coordinates: { x: 0, y: 0, width: 0, height: 0 },
+      status: "accepted",
+    })
+    .returning();
+  return { ok: true, item: rows[0]! };
+}
+
+/**
+ * 上游 §28.4「可修改」＋「確認後有版本紀錄」（AC-1～AC-3）：編輯內容或變更狀態合一。
+ * 帶 rawTestName/rawValue/rawUnit/rawReferenceRange 任一者 → 視為內容編輯：
+ *   寫入 extracted_item_edits（A36，保留編輯前的值）、status 轉 edited。
+ * 只帶 status（accepted/rejected）、未帶欄位 → 純狀態變更，不寫入歷史（無內容變動可保留）。
+ * 皆需帶入呼叫端目前所知的 version 做樂觀鎖（VERSION_CONFLICT）。
+ */
+export async function updateExtractedItem(
+  userId: string,
+  projectId: string,
+  documentId: string,
+  extractedItemId: string,
+  input: {
+    version: number;
+    rawTestName?: string;
+    rawValue?: string;
+    rawUnit?: string | null;
+    rawReferenceRange?: string | null;
+    status?: "accepted" | "rejected";
+  },
+): Promise<
+  | { ok: true; item: ExtractedItemRow }
+  | { ok: false; code: "PROJECT_ACCESS_DENIED" | "NOT_FOUND" | "VERSION_CONFLICT" | "INVALID_REQUEST" }
+> {
+  const found = await findOwnedExtractedItem(userId, projectId, documentId, extractedItemId);
+  if (!found.ok) return found;
+  const current = found.item;
+  if (current.version !== input.version) return { ok: false, code: "VERSION_CONFLICT" };
+
+  const hasFieldEdit =
+    input.rawTestName !== undefined ||
+    input.rawValue !== undefined ||
+    input.rawUnit !== undefined ||
+    input.rawReferenceRange !== undefined;
+
+  const db = getDb();
+
+  if (hasFieldEdit) {
+    const newRawTestName = input.rawTestName ?? current.rawTestName;
+    const newRawValue = input.rawValue ?? current.rawValue;
+    if (!newRawTestName.trim() || !newRawValue.trim()) return { ok: false, code: "INVALID_REQUEST" };
+
+    const rows = await db.transaction(async (tx) => {
+      await tx.insert(extractedItemEdits).values({
+        extractedItemId: current.id,
+        previousRawTestName: current.rawTestName,
+        previousRawValue: current.rawValue,
+        previousRawUnit: current.rawUnit,
+        previousRawReferenceRange: current.rawReferenceRange,
+      });
+      return tx
+        .update(extractedItems)
+        .set({
+          rawTestName: newRawTestName,
+          rawValue: newRawValue,
+          rawUnit: input.rawUnit !== undefined ? input.rawUnit : current.rawUnit,
+          rawReferenceRange:
+            input.rawReferenceRange !== undefined ? input.rawReferenceRange : current.rawReferenceRange,
+          status: "edited",
+          version: current.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(extractedItems.id, current.id), eq(extractedItems.version, input.version)))
+        .returning();
+    });
+    if (!rows[0]) return { ok: false, code: "VERSION_CONFLICT" };
+    return { ok: true, item: rows[0] };
+  }
+
+  if (input.status === undefined) return { ok: false, code: "INVALID_REQUEST" };
+  const rows = await db
+    .update(extractedItems)
+    .set({ status: input.status, version: current.version + 1, updatedAt: new Date() })
+    .where(and(eq(extractedItems.id, current.id), eq(extractedItems.version, input.version)))
+    .returning();
+  if (!rows[0]) return { ok: false, code: "VERSION_CONFLICT" };
+  return { ok: true, item: rows[0] };
+}
+
+/**
+ * 上游 §28.4／§17「刪除」（AC-6）：徹底移除，與 status=rejected（保留列供回查）語意不同（A37）。
+ * 適用情境：手動新增後反悔、或明顯雜訊不需要留存紀錄。
+ */
+export async function deleteExtractedItem(
+  userId: string,
+  projectId: string,
+  documentId: string,
+  extractedItemId: string,
+): Promise<
+  { ok: true } | { ok: false; code: "PROJECT_ACCESS_DENIED" | "NOT_FOUND" | "INVALID_REQUEST" }
+> {
+  const found = await findOwnedExtractedItem(userId, projectId, documentId, extractedItemId);
+  if (!found.ok) return found;
+
+  await getDb().delete(extractedItems).where(eq(extractedItems.id, found.item.id));
+  return { ok: true };
+}
+
+/**
+ * 確認 transaction（AC-7／AC-8；上游 §18.1：review_required → confirmed）。
+ * A38：要求該文件底下所有候選列皆已到達審查終態（edited/accepted/rejected），
+ * 不允許還有 extracted/low_confidence 殘留就確認——避免使用者漏看某列。
+ */
+export async function confirmDocument(
+  userId: string,
+  projectId: string,
+  documentId: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; code: "PROJECT_ACCESS_DENIED" | "INVALID_REQUEST" | "PENDING_REVIEW_ITEMS" }
+> {
+  const document = await findOwnedDocument(userId, projectId, documentId);
+  if (!document) return { ok: false, code: "PROJECT_ACCESS_DENIED" };
+  if (document.status !== "review_required") return { ok: false, code: "INVALID_REQUEST" };
+
+  const db = getDb();
+  const pending = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(extractedItems)
+    .where(
+      and(
+        eq(extractedItems.documentId, document.id),
+        notInArray(extractedItems.status, ["edited", "accepted", "rejected"]),
+      ),
+    );
+  if (pending[0]!.count > 0) return { ok: false, code: "PENDING_REVIEW_ITEMS" };
+
+  await db
+    .update(documents)
+    .set({ status: "confirmed", version: document.version + 1, updatedAt: new Date() })
+    .where(eq(documents.id, document.id));
+  logger.info("文件已確認", { status: "confirmed" });
   return { ok: true };
 }

@@ -2,6 +2,7 @@ import { inArray, like } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   documents,
+  extractedItemEdits,
   extractedItems,
   healthProfiles,
   projects,
@@ -37,6 +38,15 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
       .where(inArray(documents.projectId, projectIds));
     const docIds = docs.map((doc) => doc.id);
     if (docIds.length > 0) {
+      const items = await db
+        .select({ id: extractedItems.id })
+        .from(extractedItems)
+        .where(inArray(extractedItems.documentId, docIds));
+      const itemIds = items.map((item) => item.id);
+      if (itemIds.length > 0) {
+        // extracted_item_edits 有 FK 指向 extracted_items，須先刪（E2-F3，KB-019 FK 順序教訓延續）
+        await db.delete(extractedItemEdits).where(inArray(extractedItemEdits.extractedItemId, itemIds));
+      }
       await db.delete(extractedItems).where(inArray(extractedItems.documentId, docIds));
     }
     await db.delete(documents).where(inArray(documents.projectId, projectIds));

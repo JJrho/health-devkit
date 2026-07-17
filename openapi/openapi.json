@@ -206,9 +206,51 @@
     "/api/projects/{id}/documents/{documentId}/extractions": {
       "get": {
         "operationId": "listExtractedItems",
-        "summary": "辨識候選項列表（唯讀；E2-F3 才有編輯/確認）",
+        "summary": "辨識候選項列表（唯讀）",
         "responses": {
           "200": { "description": "items" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      },
+      "post": {
+        "operationId": "createExtractedItem",
+        "summary": "手動新增候選列（E2-F3；上游 §28.4「可新增」，AI 漏抓時使用者自行輸入）",
+        "responses": {
+          "200": { "description": "item（status=accepted）" },
+          "400": { "description": "INVALID_REQUEST（缺欄位或文件不在 review_required）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/extractions/{extractionId}": {
+      "patch": {
+        "operationId": "updateExtractedItem",
+        "summary": "編輯內容或變更 accepted/rejected 狀態（E2-F3；帶欄位視為編輯並寫入異動歷史，只帶 status 則為純狀態變更）",
+        "responses": {
+          "200": { "description": "item" },
+          "400": { "description": "INVALID_REQUEST" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "404": { "description": "NOT_FOUND" },
+          "409": { "description": "VERSION_CONFLICT" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteExtractedItem",
+        "summary": "刪除候選列（E2-F3；徹底移除，與 status=rejected 不同語意）",
+        "responses": {
+          "200": { "description": "已刪除" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "404": { "description": "NOT_FOUND" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/confirm": {
+      "post": {
+        "operationId": "confirmDocument",
+        "summary": "確認 transaction（E2-F3；上游 §18.1 review_required → confirmed；要求全部候選列已審查）",
+        "responses": {
+          "200": { "description": "documents.status 轉 confirmed" },
+          "400": { "description": "INVALID_REQUEST 或 PENDING_REVIEW_ITEMS" },
           "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
         }
       }

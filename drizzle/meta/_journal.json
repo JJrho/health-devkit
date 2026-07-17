@@ -43,6 +43,13 @@
       "when": 1784205587322,
       "tag": "0005_cynical_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784300723870,
+      "tag": "0006_white_toro",
+      "breakpoints": true
     }
   ]
 }
