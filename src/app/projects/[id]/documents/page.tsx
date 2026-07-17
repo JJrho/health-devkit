@@ -432,8 +432,12 @@ function ExtractionResults({ projectId, documentId }: { projectId: string; docum
             <tr key={item.id} className="border-b border-slate-200">
               <td className="py-2 pr-4">{item.rawTestName}</td>
               <td className="py-2 pr-4">{item.rawValue}</td>
-              <td className="py-2 pr-4">{item.rawUnit ?? "—"}</td>
-              <td className="py-2 pr-4">{item.rawReferenceRange ?? "—"}</td>
+              <td className="py-2 pr-4">
+                {item.rawUnit ?? <span className="italic text-slate-400">無法辨識</span>}
+              </td>
+              <td className="py-2 pr-4">
+                {item.rawReferenceRange ?? <span className="italic text-slate-400">無法辨識</span>}
+              </td>
               <td className="py-2 pr-4">
                 {item.confidence < 0.85 ? (
                   <span className="rounded-full border-2 border-amber-400 bg-amber-50 px-2 py-0.5 text-amber-800">
