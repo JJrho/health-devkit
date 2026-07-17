@@ -1,8 +1,7 @@
 import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { eq, like } from "drizzle-orm";
 import { getDb, closePool } from "@/db/client";
-import { documents, healthProfiles, projects, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import {
   archiveProject,
   auditAccessDenied,
@@ -13,12 +12,12 @@ import {
   renameProject,
   restoreProject,
 } from "@/modules/projects";
+import { cleanupTestData } from "./helpers/cleanup-test-data";
 
 /**
  * 專案服務＋四層權限鏈整合測試（E1-F4，AC-1～AC-6／AC-9；連實庫）。
- * 測試帳號用 @projects.test.invalid 網域（與 auth-service.test.ts 的
- * @test.invalid 區隔——兩檔並行執行時若共用同一 LIKE 萬用字元收尾，
- * 會互相清到對方仍有 FK 參照的使用者而炸掉 DELETE）。
+ * 測試帳號用 @projects.test.invalid 網域＋proj- 前綴（KB-019：網域區隔防
+ * 不同測試檔互刪，前綴區隔防同網域下不同測試檔互刪——兩者缺一都會互炸）。
  */
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -30,23 +29,7 @@ async function seedUser(): Promise<string> {
 
 describe.skipIf(!hasDb)("projects module（整合，需 DATABASE_URL）", () => {
   afterAll(async () => {
-    const db = getDb();
-    const testUsers = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(like(users.email, "%@projects.test.invalid"));
-    for (const user of testUsers) {
-      const ownedProjects = await db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.ownerId, user.id));
-      for (const project of ownedProjects) {
-        await db.delete(healthProfiles).where(eq(healthProfiles.projectId, project.id));
-        await db.delete(documents).where(eq(documents.projectId, project.id));
-      }
-      await db.delete(projects).where(eq(projects.ownerId, user.id));
-      await db.delete(users).where(eq(users.id, user.id));
-    }
+    await cleanupTestData("proj-%@projects.test.invalid");
     await closePool();
   });
 

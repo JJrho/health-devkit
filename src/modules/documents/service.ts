@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type { StorageAdapter } from "@/adapters";
+import type { QueueAdapter, StorageAdapter } from "@/adapters";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
 import { findOwnedProject } from "@/modules/projects";
@@ -98,9 +98,14 @@ export async function uploadPart(
   return { ok: true, document };
 }
 
-/** AC-3～AC-5：串接分段→驗證實際內容→大小/頁數→定案為 uploaded；任何失敗轉 upload_failed */
+/**
+ * AC-3～AC-5：串接分段→驗證實際內容→大小/頁數→定案；任何失敗轉 upload_failed。
+ * E2-F2 起：內容驗證通過後直接轉 processing 並 enqueue 解析工作——狀態機的
+ * uploaded 是概念上的瞬間過渡，本實作不另外持久化該中繼狀態（一次 DB 寫入即可）。
+ */
 export async function completeUpload(
   storage: StorageAdapter,
+  queue: QueueAdapter,
   userId: string,
   projectId: string,
   documentId: string,
@@ -155,12 +160,13 @@ export async function completeUpload(
       mimeType: detectedType,
       sizeBytes: combined.byteLength,
       storageKey: finalKey,
-      status: "uploaded",
+      status: "processing",
       version: document.version + 1,
       updatedAt: new Date(),
     })
     .where(eq(documents.id, document.id))
     .returning();
+  await queue.enqueue({ type: "parse-document", payload: { documentId: document.id } });
   return { ok: true, document: rows[0]! };
 }
 

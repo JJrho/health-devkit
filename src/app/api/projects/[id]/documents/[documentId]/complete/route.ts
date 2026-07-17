@@ -2,7 +2,7 @@ import { apiError, apiOk } from "@/lib/api-response";
 import { withErrorEnvelope } from "@/lib/api-handler";
 import { attachSlidingCookie, requireSession } from "@/lib/require-session";
 import { auditAccessDenied } from "@/modules/projects";
-import { completeUpload, getStorageAdapter } from "@/modules/documents";
+import { completeUpload, getQueueAdapter, getStorageAdapter } from "@/modules/documents";
 
 type Context = { params: Promise<{ id: string; documentId: string }> };
 
@@ -31,6 +31,7 @@ export const POST = withErrorEnvelope<Context>(async (request, requestId, contex
   const { id, documentId } = await context.params;
   const result = await completeUpload(
     getStorageAdapter(),
+    getQueueAdapter(),
     auth.userId,
     id,
     documentId,

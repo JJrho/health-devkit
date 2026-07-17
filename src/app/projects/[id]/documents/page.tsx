@@ -8,8 +8,39 @@ interface DocumentItem {
   filename: string;
   mimeType: string | null;
   sizeBytes: number | null;
-  status: "uploading" | "uploaded" | "upload_failed" | "deleted";
+  status:
+    | "uploading"
+    | "upload_failed"
+    | "processing"
+    | "review_required"
+    | "processing_failed"
+    | "deleted";
 }
+
+interface ExtractedItem {
+  id: string;
+  rawTestName: string;
+  rawValue: string;
+  rawUnit: string | null;
+  rawReferenceRange: string | null;
+  confidence: number;
+  pageNumber: number;
+}
+
+const DOCUMENT_STATUS_LABEL: Record<DocumentItem["status"], string> = {
+  uploading: "上傳中",
+  upload_failed: "上傳失敗",
+  processing: "解析中",
+  review_required: "待確認",
+  processing_failed: "解析失敗",
+  deleted: "已刪除",
+};
+
+const PREVIEWABLE_STATUSES = new Set<DocumentItem["status"]>([
+  "processing",
+  "review_required",
+  "processing_failed",
+]);
 
 type LoadState = "loading" | "ready" | "unauthorized" | "denied" | "error";
 
@@ -179,6 +210,18 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
     }
   }
 
+  async function handleReprocess(documentId: string) {
+    const response = await fetch(`/api/projects/${projectId}/documents/${documentId}/reprocess`, {
+      method: "POST",
+    });
+    if (response.ok) {
+      setMessage({ kind: "success", text: "已重新排入解析，稍後重新整理查看結果。" });
+      loadDocuments();
+    } else {
+      setMessage({ kind: "error", text: "重新解析失敗，請再試一次。" });
+    }
+  }
+
   return (
     <main className="mx-auto min-h-screen max-w-3xl bg-slate-50 p-6">
       <h1 className="mb-6 text-3xl font-bold text-slate-900">健檢文件</h1>
@@ -261,38 +304,14 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
           ) : (
             <ul className="flex flex-col gap-4">
               {items.map((document) => (
-                <li
+                <DocumentRow
                   key={document.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div>
-                    <p className="text-xl font-semibold text-slate-900">{document.filename}</p>
-                    <p className="text-base text-slate-600">
-                      {formatBytes(document.sizeBytes)} ·{" "}
-                      {document.status === "uploaded" && "已上傳"}
-                      {document.status === "uploading" && "上傳中"}
-                      {document.status === "upload_failed" && "上傳失敗"}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    {document.status === "uploaded" && (
-                      <button
-                        type="button"
-                        onClick={() => handlePreview(document.id)}
-                        className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
-                      >
-                        預覽
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(document.id)}
-                      className="rounded-lg border-2 border-red-400 px-5 py-3 text-lg font-semibold text-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
-                    >
-                      刪除
-                    </button>
-                  </div>
-                </li>
+                  document={document}
+                  projectId={projectId}
+                  onPreview={() => handlePreview(document.id)}
+                  onDelete={() => handleDelete(document.id)}
+                  onReprocess={() => handleReprocess(document.id)}
+                />
               ))}
             </ul>
           )}
@@ -306,5 +325,129 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
         </>
       )}
     </main>
+  );
+}
+
+function DocumentRow({
+  document,
+  projectId,
+  onPreview,
+  onDelete,
+  onReprocess,
+}: {
+  document: DocumentItem;
+  projectId: string;
+  onPreview: () => void;
+  onDelete: () => void;
+  onReprocess: () => void;
+}) {
+  const [showResults, setShowResults] = useState(false);
+  const canShowResults =
+    document.status === "review_required" || document.status === "processing_failed";
+
+  return (
+    <li className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xl font-semibold text-slate-900">{document.filename}</p>
+          <p className="text-base text-slate-600">
+            {formatBytes(document.sizeBytes)} · {DOCUMENT_STATUS_LABEL[document.status]}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {PREVIEWABLE_STATUSES.has(document.status) && (
+            <button
+              type="button"
+              onClick={onPreview}
+              className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              預覽
+            </button>
+          )}
+          {canShowResults && (
+            <button
+              type="button"
+              onClick={() => setShowResults((current) => !current)}
+              className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              {showResults ? "隱藏解析結果" : "查看解析結果"}
+            </button>
+          )}
+          {document.status === "processing_failed" && (
+            <button
+              type="button"
+              onClick={onReprocess}
+              className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              重新解析
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDelete}
+            className="rounded-lg border-2 border-red-400 px-5 py-3 text-lg font-semibold text-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
+          >
+            刪除
+          </button>
+        </div>
+      </div>
+      {showResults && <ExtractionResults projectId={projectId} documentId={document.id} />}
+    </li>
+  );
+}
+
+/** 唯讀解析結果（PoC 檢視用；編輯/確認留待 E2-F3） */
+function ExtractionResults({ projectId, documentId }: { projectId: string; documentId: string }) {
+  const [items, setItems] = useState<ExtractedItem[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/documents/${documentId}/extractions`)
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => setItems(data.items))
+      .catch(() => setError(true));
+  }, [projectId, documentId]);
+
+  if (error) return <p className="mt-4 text-base text-red-700">無法載入解析結果。</p>;
+  if (items === null) return <p className="mt-4 text-base text-slate-600">載入中…</p>;
+  if (items.length === 0) {
+    return <p className="mt-4 text-base text-slate-600">沒有辨識到任何檢驗數據列。</p>;
+  }
+
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full border-collapse text-left text-base">
+        <thead>
+          <tr className="border-b-2 border-slate-300">
+            <th className="py-2 pr-4">項目</th>
+            <th className="py-2 pr-4">數值</th>
+            <th className="py-2 pr-4">單位</th>
+            <th className="py-2 pr-4">參考區間</th>
+            <th className="py-2 pr-4">信心值</th>
+            <th className="py-2 pr-4">頁碼</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id} className="border-b border-slate-200">
+              <td className="py-2 pr-4">{item.rawTestName}</td>
+              <td className="py-2 pr-4">{item.rawValue}</td>
+              <td className="py-2 pr-4">{item.rawUnit ?? "—"}</td>
+              <td className="py-2 pr-4">{item.rawReferenceRange ?? "—"}</td>
+              <td className="py-2 pr-4">
+                {item.confidence < 0.85 ? (
+                  <span className="rounded-full border-2 border-amber-400 bg-amber-50 px-2 py-0.5 text-amber-800">
+                    待確認（{item.confidence.toFixed(2)}）
+                  </span>
+                ) : (
+                  item.confidence.toFixed(2)
+                )}
+              </td>
+              <td className="py-2 pr-4">{item.pageNumber}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

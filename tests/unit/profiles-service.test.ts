@@ -1,15 +1,14 @@
 import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { eq, like } from "drizzle-orm";
 import { getDb, closePool } from "@/db/client";
-import { documents, healthProfiles, projects, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { createProject, deleteProject } from "@/modules/projects";
 import { getProfile, upsertProfile } from "@/modules/profiles";
+import { cleanupTestData } from "./helpers/cleanup-test-data";
 
 /**
  * 個人健康背景整合測試（E1-F5，AC-1～AC-8；連實庫）。
- * 測試帳號沿用 @projects.test.invalid 網域（KB-019：與 auth-service.test.ts
- * 的 @test.invalid 萬用字元區隔，避免 FK 併發清理互炸）。
+ * 測試帳號用 @projects.test.invalid 網域＋profile- 前綴（KB-019）。
  */
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -21,23 +20,7 @@ async function seedUser(): Promise<string> {
 
 describe.skipIf(!hasDb)("profiles module（整合，需 DATABASE_URL）", () => {
   afterAll(async () => {
-    const db = getDb();
-    const testUsers = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(like(users.email, "%@projects.test.invalid"));
-    for (const user of testUsers) {
-      const ownedProjects = await db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.ownerId, user.id));
-      for (const project of ownedProjects) {
-        await db.delete(healthProfiles).where(eq(healthProfiles.projectId, project.id));
-        await db.delete(documents).where(eq(documents.projectId, project.id));
-      }
-      await db.delete(projects).where(eq(projects.ownerId, user.id));
-      await db.delete(users).where(eq(users.id, user.id));
-    }
+    await cleanupTestData("profile-%@projects.test.invalid");
     await closePool();
   });
 

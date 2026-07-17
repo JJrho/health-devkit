@@ -1,0 +1,48 @@
+import { inArray, like } from "drizzle-orm";
+import { getDb } from "@/db/client";
+import {
+  documents,
+  extractedItems,
+  healthProfiles,
+  projects,
+  sessions,
+  users,
+} from "@/db/schema";
+
+/**
+ * 共用測試收尾清理（KB-019）：批次刪除（`inArray`），不逐列查詢——
+ * 逐列刪除在大量資料（如配額測試灌 200 筆）下會讓 `afterAll` 逾時卡死。
+ * `emailLikePattern` 務必包含各測試檔自己的前綴（如 `"doc-%@projects.test.invalid"`），
+ * 不要用大範圍萬用字元，否則平行執行的測試檔會互相刪到對方尚在使用的資料。
+ */
+export async function cleanupTestData(emailLikePattern: string): Promise<void> {
+  const db = getDb();
+  const testUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(like(users.email, emailLikePattern));
+  const userIds = testUsers.map((user) => user.id);
+  if (userIds.length === 0) return;
+
+  const ownedProjects = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(inArray(projects.ownerId, userIds));
+  const projectIds = ownedProjects.map((project) => project.id);
+
+  if (projectIds.length > 0) {
+    const docs = await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(inArray(documents.projectId, projectIds));
+    const docIds = docs.map((doc) => doc.id);
+    if (docIds.length > 0) {
+      await db.delete(extractedItems).where(inArray(extractedItems.documentId, docIds));
+    }
+    await db.delete(documents).where(inArray(documents.projectId, projectIds));
+    await db.delete(healthProfiles).where(inArray(healthProfiles.projectId, projectIds));
+  }
+  await db.delete(projects).where(inArray(projects.ownerId, userIds));
+  await db.delete(sessions).where(inArray(sessions.userId, userIds));
+  await db.delete(users).where(inArray(users.id, userIds));
+}

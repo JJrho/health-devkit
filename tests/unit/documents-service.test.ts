@@ -1,10 +1,10 @@
 import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { eq, like } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
-import type { StorageAdapter } from "@/adapters";
+import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
-import { documents, healthProfiles, projects, users } from "@/db/schema";
+import { documents, users } from "@/db/schema";
 import { createProject } from "@/modules/projects";
 import {
   completeUpload,
@@ -15,10 +15,11 @@ import {
   uploadPart,
 } from "@/modules/documents";
 import { isEmailVerified } from "@/lib/require-verified-email";
+import { cleanupTestData } from "./helpers/cleanup-test-data";
 
 /**
  * 文件上傳整合測試（E2-F1，AC-1～AC-11；連實庫，Storage 以記憶體假實作取代）。
- * 測試帳號沿用 @projects.test.invalid 網域（KB-019）。
+ * 測試帳號用 @projects.test.invalid 網域＋doc- 前綴（KB-019）。
  */
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -41,6 +42,22 @@ class FakeStorageAdapter implements StorageAdapter {
   }
 }
 
+class FakeQueueAdapter implements QueueAdapter {
+  enqueued: EnqueueInput[] = [];
+  async enqueue(input: EnqueueInput): Promise<{ id: string }> {
+    this.enqueued.push(input);
+    return { id: randomUUID() };
+  }
+  async claimNext(): Promise<ClaimedJob | null> {
+    return null;
+  }
+  async complete(): Promise<void> {}
+  async fail(): Promise<void> {}
+  async getJob(): Promise<QueueJobView | null> {
+    return null;
+  }
+}
+
 async function seedUser(): Promise<string> {
   const id = randomUUID();
   await getDb().insert(users).values({ id, email: `doc-${id}@projects.test.invalid` });
@@ -60,23 +77,7 @@ function makePng(totalBytes = 100): Buffer {
 
 describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () => {
   afterAll(async () => {
-    const db = getDb();
-    const testUsers = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(like(users.email, "%@projects.test.invalid"));
-    for (const user of testUsers) {
-      const ownedProjects = await db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.ownerId, user.id));
-      for (const project of ownedProjects) {
-        await db.delete(documents).where(eq(documents.projectId, project.id));
-        await db.delete(healthProfiles).where(eq(healthProfiles.projectId, project.id));
-      }
-      await db.delete(projects).where(eq(projects.ownerId, user.id));
-      await db.delete(users).where(eq(users.id, user.id));
-    }
+    await cleanupTestData("doc-%@projects.test.invalid");
     await closePool();
   });
 
@@ -105,6 +106,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
   it("AC-3：完整流程（建立→分段→complete）成功，PDF 內容通過驗證", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "文件測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -117,15 +119,19 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     const partResult = await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
     expect(partResult.ok).toBe(true);
 
-    const completed = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
     expect(completed).toMatchObject({
       ok: true,
-      document: { status: "uploaded", mimeType: "application/pdf" },
+      document: { status: "processing", mimeType: "application/pdf" },
     });
+    expect(queue.enqueued).toEqual([
+      { type: "parse-document", payload: { documentId: session.document.id } },
+    ]);
   });
 
   it("AC-4：偽造副檔名但內容不符（非 PDF/JPG/PNG）回 FILE_TYPE_NOT_SUPPORTED，狀態轉 upload_failed", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "文件測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -136,7 +142,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const notAFile = Buffer.from("這只是一段純文字，不是任何合法格式的檔案內容");
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, notAFile);
-    const completed = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TYPE_NOT_SUPPORTED" });
 
     const rows = await getDb()
@@ -148,6 +154,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
   it("AC-5：PDF 超過 30 頁回 FILE_TOO_LARGE", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "文件測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -158,12 +165,13 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const pdfBytes = await makePdf(31);
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
-    const completed = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TOO_LARGE" });
   });
 
   it("AC-5：檔案超過 20MB 回 FILE_TOO_LARGE（PNG 內容合法但過大）", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "文件測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -174,12 +182,13 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const oversized = makePng(21 * 1024 * 1024);
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, oversized);
-    const completed = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TOO_LARGE" });
   }, 15000);
 
   it("失敗後換檔重試（同一會話）可成功完成", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "文件測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -189,12 +198,12 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     if (!session.ok) throw new Error("setup failed");
 
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, Buffer.from("bad"));
-    const failed = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    const failed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
     expect(failed.ok).toBe(false);
 
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, makePng());
-    const retried = await completeUpload(storage, ownerId, project.id, session.document.id, 1);
-    expect(retried).toMatchObject({ ok: true, document: { status: "uploaded" } });
+    const retried = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    expect(retried).toMatchObject({ ok: true, document: { status: "processing" } });
   });
 
   it("AC-6：每專案 200 份文件上限，第 201 筆遭拒", async () => {
@@ -223,6 +232,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
   it("AC-7（四層鏈第 3 層）：文件存在專案 A，用專案 B 的 id 一律 PROJECT_ACCESS_DENIED", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const projectA = await createProject(ownerId, "專案 A");
     const projectB = await createProject(ownerId, "專案 B");
@@ -236,7 +246,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
       await uploadPart(storage, ownerId, projectB.id, session.document.id, 1, makePng()),
     ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
     expect(
-      await completeUpload(storage, ownerId, projectB.id, session.document.id, 1),
+      await completeUpload(storage, queue, ownerId, projectB.id, session.document.id, 1),
     ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
     expect(await deleteDocument(storage, ownerId, projectB.id, session.document.id)).toEqual({
       ok: false,
@@ -296,6 +306,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
   it("AC-10：已上傳文件回短效 signed URL", async () => {
     const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "預覽測試專案");
     const session = await createUploadSession(ownerId, project.id, {
@@ -304,7 +315,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     });
     if (!session.ok) throw new Error("setup failed");
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, makePng());
-    await completeUpload(storage, ownerId, project.id, session.document.id, 1);
+    await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
 
     const preview = await getPreviewUrl(storage, ownerId, project.id, session.document.id);
     expect(preview.ok && preview.url).toContain("signed=1");

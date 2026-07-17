@@ -174,9 +174,9 @@
     "/api/projects/{id}/documents/{documentId}/complete": {
       "post": {
         "operationId": "completeUpload",
-        "summary": "完成上傳（AC-3～AC-5；串接分段、驗證實際內容、大小/頁數）",
+        "summary": "完成上傳（AC-3～AC-5；串接分段、驗證實際內容、大小/頁數；E2-F2 起自動排入解析）",
         "responses": {
-          "200": { "description": "document（status=uploaded）" },
+          "200": { "description": "document（status=processing，已自動排入解析工作）" },
           "400": { "description": "FILE_TOO_LARGE／FILE_TYPE_NOT_SUPPORTED／FILE_CORRUPTED（ErrorEnvelope）" },
           "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
         }
@@ -198,6 +198,27 @@
         "summary": "短效 signed URL（AC-10；憲法 §4：不入日誌）",
         "responses": {
           "200": { "description": "url" },
+          "400": { "description": "INVALID_REQUEST（尚未完成上傳）" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/extractions": {
+      "get": {
+        "operationId": "listExtractedItems",
+        "summary": "辨識候選項列表（唯讀；E2-F3 才有編輯/確認）",
+        "responses": {
+          "200": { "description": "items" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/documents/{documentId}/reprocess": {
+      "post": {
+        "operationId": "reprocessDocument",
+        "summary": "重新解析（AC-7；清空舊候選、重新 enqueue）",
+        "responses": {
+          "200": { "description": "已重新排入解析" },
           "400": { "description": "INVALID_REQUEST（尚未完成上傳）" },
           "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
         }

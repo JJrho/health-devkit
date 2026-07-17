@@ -2,14 +2,17 @@ import "dotenv/config";
 import { getPool, closePool } from "@/db/client";
 import { PgQueueAdapter } from "@/adapters/pg-queue/pg-queue-adapter";
 import { logger } from "@/lib/logger";
+import { withTimeout } from "@/lib/with-timeout";
 import { jobHandlers } from "./job-handlers";
 
 /**
  * 長駐 Worker（C1：與 Web 同 codebase、Zeabur 另開 service 部署——Sprint 2）。
  * 輪詢認領 → 執行處理器 → complete／fail。
  * 憲法 §4：日誌僅記白名單欄位（jobId/type/status），payload 一律不落地。
+ * KB-022（E2-F2）：每個工作執行皆包逾時，惡意／病態輸入不得卡死整條 pipeline。
  */
 const POLL_INTERVAL_MS = 1000;
+const JOB_TIMEOUT_MS = 60_000; // A25 草案值
 let running = true;
 
 async function tick(queue: PgQueueAdapter): Promise<void> {
@@ -28,7 +31,7 @@ async function tick(queue: PgQueueAdapter): Promise<void> {
   }
 
   try {
-    await handler(job);
+    await withTimeout(handler(job), JOB_TIMEOUT_MS);
     await queue.complete(job.id);
     logger.info("工作完成", {
       requestId,

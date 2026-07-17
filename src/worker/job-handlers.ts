@@ -1,4 +1,6 @@
 import type { ClaimedJob } from "@/adapters";
+import { getStorageAdapter } from "@/modules/documents";
+import { runExtraction } from "@/modules/extraction";
 
 /**
  * 工作處理器註冊表。
@@ -13,5 +15,10 @@ export const jobHandlers: Record<string, JobHandler> = {
   },
   "poc-fail": async () => {
     throw new Error("PoC 失敗路徑模擬（AC-4）");
+  },
+  "parse-document": async (job) => {
+    const documentId = job.payload.documentId;
+    if (typeof documentId !== "string") throw new Error("payload 缺少 documentId");
+    await runExtraction(getStorageAdapter(), documentId);
   },
 };

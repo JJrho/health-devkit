@@ -1,6 +1,54 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 6 ✅ 完成（2026-07-16）——**E2-F1 上傳會話與預覽模組結案（Feature 5/20）**，已 commit（`b2b413f`）＋push＋正式站部署驗證通過。下一個：PO 決定是否開工 E2-F2（PDF 解析管線，本案第一個 🔴 PoC Feature）。
+> 目前狀態：Sprint 7 機制實作完成、對 7 份 PO 真實健檢報告完整驗證（2026-07-16）——**E2-F2 文字型 PDF 解析管線 PoC 1/2**，尚待 commit／push／正式站部署驗證。⚠️ **PoC 真實結果（KB-023）：7 份真實樣本僅 14% 有文字層，86% 是掃描/紙本來源進不了本管線**——這是本輪最重要的產出，優先順序建議見下方，待 PO 拍板。
+
+## Sprint 7 — E2-F2：文字型 PDF 解析管線（PoC 1/2）🟡 待 commit／部署／PO 拍板 OCR 優先順序
+
+- 期間：2026-07-16（單日完成機制實作與驗證）
+- DOR：✅ 通過（sprints/sprint-07-dor.md；A22–A25 由 PO 追認）
+- 目標：A22 可行性驗證＋自動觸發＋PoC 解析啟發式＋KB-022 逾時防線＋四層鏈重用＋唯讀結果 UI → **機制面達成**；準確率面待真實樣本
+
+### 驗收結果（AC-1～AC-9；整合測試＋對真實 Supabase Storage／真實 Worker 進程的 curl 驗證）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ 真實驗證：`completeUpload` 成功後自動轉 `processing`，真實 Worker 進程（`pnpm worker`）輪詢撿起並執行 `parse-document` |
+| AC-2 | ✅ 整合測試＋真實驗證：清楚檢驗列（項目/數值/單位/參考區間皆匹配）→ `confidence=0.95`、`status=extracted`，`page_number`／`coordinates` 正確回查 |
+| AC-3 | ✅ 整合測試＋真實驗證：缺單位與參考區間的列 → `confidence=0.45`、`status=low_confidence`（C14 閾值 0.85 生效） |
+| AC-4 | ✅ 整合測試：無文字層 PDF（空白頁模擬）→ `processing_failed`，不誤植假資料 |
+| AC-5（KB-022 安全防線） | ✅ 單元測試（`with-timeout.test.ts`）驗證逾時機制本身；`main.ts` 已將 `handler(job)` 包上 60 秒逾時。**未做**真正模擬病態 PDF 拖垮 Worker 的端到端測試（不易在單元測試中安全模擬），機制正確性以程式碼檢視＋單元測試佐證，非完整整合驗證 |
+| AC-6 | ✅ 整合測試（四層鏈重用）：候選項存在專案 A，用專案 B 的 id 查一律 `PROJECT_ACCESS_DENIED` |
+| AC-7 | ✅ 整合測試＋真實驗證：reprocess 清空舊候選、重新 enqueue、真實 Worker 重新解析成功（1.27 秒），無重複 |
+| AC-8 | ✅ 整合測試＋真實 log 檢查：日誌不含抽取內容（項目名稱／數值） |
+| AC-9（PoC 準確率記錄） | ✅ **真實樣本完成，結論明確**——見下方 KB-023 說明 |
+
+### AC-9 詳細記錄（真實樣本，KB-023）
+本輪先用自建合成 PDF 證明管線機制正確（4 行測試列全數依信心值正確分級，Worker 1.3～3.0 秒完成），接著 PO 提供 **7 份 2020～2025 年、自己（及一位家屬）的真實員工健檢報告 PDF**，全數跑過真實 Worker 進程：
+
+- **7 份僅 1 份（14%）有文字層**能進到解析邏輯，其餘 6 份（86%）`pdfjs-dist` 回傳零文字項目，直接 `processing_failed`——不是準確率不夠，是**多數真實文件根本進不了這條 pipeline**
+- 唯一成功的 1 份正確抽出多筆真實數值（身高體重、WBC、膽固醇、血糖等），但也暴露具體缺陷：多欄表格的參考區間與數值互相污染、單位常抓不到、頁首病患資訊被誤判成檢驗項目（且信心值偏高）
+- **PO 說明真實成因**：台灣醫療院所預設寄紙本，只有私人健檢中心在病患提供 Email 時才寄電子檔；**真實世界最常見的上傳方式是使用者拿手機拍紙本**，不是上傳醫院寄來的 PDF——與實測比例完全吻合，非樣本偏差
+
+**結論（不再是「待判斷」，是「已判斷」）**：即使把文字解析準確率調到完美，E2-F2/E2-F3/E2-F4 這條路線的天花板可能只覆蓋一到兩成真實使用情境。**OCR 不是「排在後面的加分項」，是「這條產品路徑能不能服務多數使用者」的關鍵瓶頸**，優先順序需要 PO 重新拍板（原暫定排在 E2-F3 之後）。
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 14 檔／69 test 全綠；`pnpm build` 乾淨過；typecheck／lint 無錯誤
+- [x] 肉眼驗收：對真實 Supabase Storage＋真實 Worker 進程端到端驗證（非僅假 adapter／假 queue）；UI 唯讀解析結果表格以真實資料驗證
+- [x] 修正皆反映於規格與文件：SDD §15／SPRINT_LOG／KB-022／SYNC／ROADMAP 已更新；OpenAPI 已補 extractions/reprocess 端點
+- [x] 假設 A22–A25 已於 DOR 追認；本輪無新增 A 編號
+- [x] 追加 DOD：四層權限鏈為重用非新增（AC-6）；日誌掃描 P0（AC-8，抽取內容是最直接的健康數值本身）；LLM Streaming N/A；**PoC 準確率記錄（AC-9）以 7 份真實樣本完成，如實記錄 14% 文字層比例，不迴避不利結論**
+- [x] 真實個資處理：7 份真實健檢 PDF（PO 本人＋一位家屬）僅用於本機測試，每輪測完立即清除 DB 列與 Storage 物件（含刪除確認），未寫入任何 commit 或文件；抽取結果原始 dump 亦未留存於文件內
+- [ ] 下一步：PO 決定 OCR 優先順序（KB-023）→ 據此決定 Sprint 8 範圍（文字解析調校 vs. 轉向 OCR）；同時決定 commit／push／部署 Sprint 7 現有成果的時機
+
+### 本輪工程筆記
+- A22（`pdfjs-dist` 伺服器端文字＋座標抽取）一次驗證成功，用 `pdfjs-dist/legacy/build/pdf.mjs`（Node 相容版本），`getTextContent()` 的 `transform` 陣列可直接取得 x/y 座標
+- 新增 `src/lib/with-timeout.ts`（KB-022 逾時機制，`Promise.race` 包裝），套用於 `src/worker/main.ts` 的 `tick()`；已知限制：JS 沒有真正搶占式取消，逾時只是不再等待，底層 promise 若真的卡死仍會在背景耗資源，完整隔離需要 child process，本輪判斷這個折衷對 PoC 階段足夠
+- `completeUpload`（E2-F1 既有函式）擴充簽章新增 `QueueAdapter` 參數，成功後直接轉 `processing` 並 enqueue——`uploaded` 狀態在本實作中是概念性的瞬間過渡，未實際持久化，E2-F1 原本斷言 `status: "uploaded"` 的測試已相應更新為 `"processing"`（刻意的設計變更，非回歸）
+- **測試基礎設施重大修正**（KB-019 最終更新）：新增 `extraction-service.test.ts` 後，四個共用 `@projects.test.invalid` 網域的測試檔（`projects`／`profiles`／`documents`／`extraction`）的 `afterAll` 清理查詢**全部沒吃到各自的 seed 前綴**，平行執行時互相刪到對方使用中的資料，導致斷言失敗與 hook timeout（10 秒）。修法：(1) 清理查詢的 `like()` 條件收緊為各自前綴；(2) 抽出共用 `tests/unit/helpers/cleanup-test-data.ts`，用 `inArray` 批次刪除取代逐列 `for` 迴圈刪除（原本 200 筆配額測試資料會逐筆觸發 200 次 DB 往返，是 hook timeout 的另一半原因）。四個檔案改用共用 helper 後測試套件從「偶發 timeout」穩定變成 8 秒內全綠。
+
+### 給下一個 Sprint 的具體提醒
+- **KB-023 是本輪最重要的產出，下一個 Sprint 開工前務必先讀**：86% 真實健檢報告無文字層，OCR 優先順序待 PO 拍板，可能直接影響 Sprint 8 該做什麼（文字解析調校 vs. 轉向 OCR）
+- 若未來真的開 OCR Feature，設計時納入「手機拍照」情境（透視變形、光線不均、解析度、單頁未拍全），不能只當作「掃描機掃描」那麼乾淨
+- 之後任何新表若會被 `@projects.test.invalid` 系列測試建立，新測試檔直接用 `tests/unit/helpers/cleanup-test-data.ts` 的 `cleanupTestData(前綴)`，不要再手寫清理迴圈
 
 ## Sprint 6 — E2-F1：上傳會話與預覽模組 ✅
 
