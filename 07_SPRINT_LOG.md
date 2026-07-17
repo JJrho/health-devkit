@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 7 機制實作完成、對 7 份 PO 真實健檢報告完整驗證（2026-07-16）——**E2-F2 文字型 PDF 解析管線 PoC 1/2**，尚待 commit／push／正式站部署驗證。⚠️ **PoC 真實結果（KB-023）：7 份真實樣本僅 14% 有文字層，86% 是掃描/紙本來源進不了本管線**——這是本輪最重要的產出，優先順序建議見下方，待 PO 拍板。
+> 目前狀態：Sprint 7 ✅ 已 commit（`212ce90`）＋push＋正式站部署驗證通過（2026-07-17）——**E2-F2 文字型 PDF 解析管線 PoC 1/2**，以 7 份 PO 真實健檢報告完整驗證。⚠️ **PoC 真實結果（KB-023）：7 份真實樣本僅 14% 有文字層，86% 是掃描/紙本來源進不了本管線**——這是本輪最重要的產出。**OCR 排程已由 PO 拍板：維持原計畫排在 E2-F3 之後，不因此提前**。
 
-## Sprint 7 — E2-F2：文字型 PDF 解析管線（PoC 1/2）🟡 待 commit／部署／PO 拍板 OCR 優先順序
+## Sprint 7 — E2-F2：文字型 PDF 解析管線（PoC 1/2）✅ 已 commit＋push＋正式站部署驗證通過
 
 - 期間：2026-07-16（單日完成機制實作與驗證）
 - DOR：✅ 通過（sprints/sprint-07-dor.md；A22–A25 由 PO 追認）
@@ -37,7 +37,9 @@
 - [x] 假設 A22–A25 已於 DOR 追認；本輪無新增 A 編號
 - [x] 追加 DOD：四層權限鏈為重用非新增（AC-6）；日誌掃描 P0（AC-8，抽取內容是最直接的健康數值本身）；LLM Streaming N/A；**PoC 準確率記錄（AC-9）以 7 份真實樣本完成，如實記錄 14% 文字層比例，不迴避不利結論**
 - [x] 真實個資處理：7 份真實健檢 PDF（PO 本人＋一位家屬）僅用於本機測試，每輪測完立即清除 DB 列與 Storage 物件（含刪除確認），未寫入任何 commit 或文件；抽取結果原始 dump 亦未留存於文件內
-- [ ] 下一步：PO 決定 OCR 優先順序（KB-023）→ 據此決定 Sprint 8 範圍（文字解析調校 vs. 轉向 OCR）；同時決定 commit／push／部署 Sprint 7 現有成果的時機
+- [x] PO 2026-07-17：commit（`212ce90`）＋push＋正式站部署驗證通過（web／worker 兩 service 皆 `RUNNING`，`/api/projects/{id}/documents/{documentId}/extractions` 回 401 確認新版上線，worker log 確認 `Worker 啟動`）
+- [x] PO 2026-07-17：OCR 優先順序拍板——維持原計畫排在 E2-F3 之後，不因 KB-023 的 86% 數字提前
+- [ ] 下一步：規劃 Sprint 8（E2-F3／E2-F4，是否同批納入已知的抽取準確率調校）
 
 ### 本輪工程筆記
 - A22（`pdfjs-dist` 伺服器端文字＋座標抽取）一次驗證成功，用 `pdfjs-dist/legacy/build/pdf.mjs`（Node 相容版本），`getTextContent()` 的 `transform` 陣列可直接取得 x/y 座標

@@ -1,7 +1,7 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～6 ✅（2026-07-12～07-16）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1 Feature 結案（5/20）**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）機制實作完成、以 7 份 PO 真實健檢報告完整驗證，已 commit＋push（2026-07-16），尚未部署正式站**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
+開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～7 ✅（2026-07-12～07-17）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1 Feature 結案（5/20）＋E2-F2 PoC 1/2 機制實作完成**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）以 7 份 PO 真實健檢報告完整驗證，2026-07-17 已 commit（`212ce90`）＋push＋正式站部署驗證通過（web／worker 兩 service 皆確認上線）**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
 
 ## 2. 目前版本
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格 v1.2.2；技術選型 v1.0.0；方法論 v1.2.0。
@@ -11,12 +11,14 @@ Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）：A22（`pdfjs-dist` 伺�
 
 **真實 PoC 結果（KB-023，本輪最重要產出）**：PO 提供 7 份 2020～2025 年真實健檢報告 PDF（本人＋一位家屬），全數跑過真實 Worker 進程。**僅 1 份（14%）有文字層**能進到解析邏輯，其餘 6 份（86%）`pdfjs-dist` 回傳零文字項目、直接 `processing_failed`。唯一成功的 1 份正確抽出多筆真實數值，但也暴露具體缺陷（多欄表格參考區間污染、單位常抓不到、頁首資訊誤判）。**PO 說明真實成因**：台灣醫療院所預設寄紙本，僅私人健檢中心於病患提供 Email 時才寄電子檔，真實世界最常見的上傳方式是**手機拍紙本**。所有真實個資測完即清除（DB＋Storage，含刪除確認），未留存於任何文件或 commit。
 
-**OCR 排程最終拍板（2026-07-16）**：儘管文字型 PDF 路線覆蓋率天花板可能只有一到兩成，**PO 決定維持原計畫，OCR 排在 E2-F3 之後、不因此提前**——先把文字型管線＋手動輸入 fallback 做穩、資料模型穩定後再接 OCR，避免插隊重排造成整合成本與風險。Sprint 7 已 commit＋push。
+**OCR 排程最終拍板（2026-07-16）**：儘管文字型 PDF 路線覆蓋率天花板可能只有一到兩成，**PO 決定維持原計畫，OCR 排在 E2-F3 之後、不因此提前**——先把文字型管線＋手動輸入 fallback 做穩、資料模型穩定後再接 OCR，避免插隊重排造成整合成本與風險。
+
+**部署驗證（2026-07-17）**：commit `212ce90` push 後 web／worker 兩 service 皆自動重建，`zeabur deployment list` 確認雙 service 皆轉 `RUNNING`；`/api/health` 200，新路由 `/api/projects/{id}/documents/{documentId}/extractions` 由部署前的 404（路由不存在）轉為部署後的 401（需登入，路由已生效），確認新版正確上線；worker runtime log 顯示 `"Worker 啟動","status":"started"` 正常開機。Sprint 7 全部完成（commit＋push＋部署）。
 
 Sprint 6（E2-F1 上傳會話與預覽模組）：已 commit（`b2b413f`）＋push＋正式站部署驗證通過。⚠️ A21（惡意檔案掃描缺口）正式生效，登記 KB-021。
 
 ## 4. 下一步
-Sprint 7 已 commit＋push，OCR 排程已拍板（維持原計畫、排 E2-F3 之後）。接下來評估 Sprint 8 範圍：續攻 E2-F3／E2-F4（結構化健檢資料儲存＋比對），抽取準確率調校（已知缺陷：多欄表格參考區間污染、單位常抓不到、頁首誤判）視情況並行或後補。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。Sprint 7 正式站部署時機待 PO 決定。
+Sprint 7 已 commit＋push＋部署驗證通過，OCR 排程已拍板（維持原計畫、排 E2-F3 之後）。**E2-F2 原估 2 個 Sprint（PoC 1/2 已完成），Sprint 8 預期是 PoC 2/2**：針對已知缺陷（多欄表格參考區間污染、單位常抓不到、頁首誤判）調校抽取邏輯，結案後才進 E2-F3（人工確認與入庫模組）。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。
 
 ## 5. 最高優先事項
 Sprint 8 DOR 規劃（E2-F3 或後續 Feature）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC 依序：E2-F2（機制完成，真實覆蓋率結論見 KB-023，OCR 排程已拍板）、E4-F3 引用驗證。
