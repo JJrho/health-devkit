@@ -138,9 +138,11 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E2-F2 文字型 PDF 解析管線 PoC 2/2（準確率調校）完成，E2-F2 正式結案（2026-07-17，Sprint 8，KB-024）**：針對 Sprint 7 三個已知缺陷做根因修正。**過程推翻 DOR 原訂技術方向**：合成探測腳本（不含真實資料）量出 pdfjs 對間距 <1.5pt 的相鄰文字會合併成單一字串且零分隔字元，欄位邊界資訊在到達應用層前已遺失，「依 x 間距重新拼接 item」（原 A26 方向）打不中問題。改採**內容形狀驗證**：`rawUnit`／`rawReferenceRange` 只在通過驗證時才指派，否則維持 `null`（UI 顯示「無法辨識」），對應 PO 拍板的 first priority——寧可誠實地不完整，不猜測切法。另加 A28 防呆：含冒號的頁首／病患中繼資料列直接排除，不進候選列。合成多欄 fixture＋端到端真實管線（真實 Storage／Worker／UI，僅合成資料非真實 PHI）皆驗證通過。全專案 75 個測試／typecheck／lint／`pnpm build` 全綠。已知殘留限制：語法上恰好合法的黏合巧合（如無單位字尾的裸數字範圍）仍無法辨識，這是資訊遺失造成的根本限制，非實作疏漏，詳見 KB-024。已 commit（`3b49da3`）＋push＋正式站部署驗證通過（部署驗證過程另發現並修復 worker 環境變數缺口，KB-025；亦記錄本專案第 4 次意外機密外洩事故並完成輪替與規則強化，KB-026）。
 
-**E2-F3 人工確認與入庫模組實作完成（2026-07-17，Sprint 9，Feature 7/20）**：讓使用者對 `extracted_items` 候選列新增、編輯、接受、拒絕，並透過確認 transaction 把文件鎖定為 `confirmed`（上游 §18.1）。開工前撰寫 DOR 時發現本專案「上游規格」章節引用長期查無實據——原始完整規格檔案從未 commit 過，已由 PO 提供並補進 `archive/upstream_spec/`（詳見 KB-027），DOR 因此得以依驗證過的原文重寫。新增 `extracted_item_edits` 異動歷史表（A36，落實憲法 §4「原值永久保留」）；E2-F3／E2-F4 邊界依上游 §17 逐字確認（E2-F3 只管候選列生命週期，別名／單位／numeric 標準化留給 E2-F4）。實作中修正 DOR 未言明的一致性缺口：confirmed 後的候選列需鎖定，PATCH／DELETE 一律擋下。合成資料端到端真實管線＋瀏覽器互動驗證（編輯→接受→確認→UI 即時鎖定為唯讀）皆通過。全專案 84 個測試（+9）／typecheck／lint／`pnpm build` 全綠。尚待：PO 對 KB-021（惡意檔案掃描）做出明確決定；commit／push／正式站部署驗證。
+**E2-F3 人工確認與入庫模組完成（2026-07-17，Sprint 9，Feature 7/20）**：讓使用者對 `extracted_items` 候選列新增、編輯、接受、拒絕，並透過確認 transaction 把文件鎖定為 `confirmed`（上游 §18.1）。開工前撰寫 DOR 時發現本專案「上游規格」章節引用長期查無實據——原始完整規格檔案從未 commit 過，已由 PO 提供並補進 `archive/upstream_spec/`（詳見 KB-027），DOR 因此得以依驗證過的原文重寫。新增 `extracted_item_edits` 異動歷史表（A36，落實憲法 §4「原值永久保留」）；E2-F3／E2-F4 邊界依上游 §17 逐字確認（E2-F3 只管候選列生命週期，別名／單位／numeric 標準化留給 E2-F4）。實作中修正 DOR 未言明的一致性缺口：confirmed 後的候選列需鎖定，PATCH／DELETE 一律擋下。合成資料端到端真實管線＋瀏覽器互動驗證（編輯→接受→確認→UI 即時鎖定為唯讀）皆通過。全專案 84 個測試（+9）／typecheck／lint／`pnpm build` 全綠。已 commit（`b9f878d`）＋push＋正式站部署驗證通過；PO 就 KB-021（惡意檔案掃描）拍板維持原計畫留到 E6-F2。
 
-下一步：PO 對 KB-021 做出明確決定；PO 決定 Sprint 9 commit／push／部署時機；E2-F3 結案後開 Sprint 10（E2-F4：標準化與正式紀錄模組）DOR；或先處理 KB-018／KB-020 已知限制。
+**E2-F4 標準化與正式紀錄模組實作完成（2026-07-18，Sprint 10，Feature 8/20）**：把 E2-F3 確認完成的候選列，透過別名精確比對＋單位白名單自動標準化為正式數值紀錄（`observations`），由 Worker 於 `confirmDocument` 成功後非同步觸發（`standardize-document` job）。新增 4 張表：`test_definitions`／`test_aliases`（僅精確字串比對，A40，避免模糊比對誤連不同檢驗項目）／`test_definition_units`（單位白名單＋`factorToCanonical`）／`observations`（`numeric` 型別，版本鏈採「新增列＋舊列 superseded」模式，A42，區別於 E2-F3 純附加異動歷史表模式）。種子資料刻意保守（A41）：僅 4 個已知項目各 1 筆精確別名＋恆等換算，不發明真實醫療單位換算係數。`observations` 掛在專案層級（A43，依上游 API 路徑確認），支援版本鏈橫跨多份文件。全專案 95 個測試（+11）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器驗證（標準化結果正確渲染於「已入庫的正式紀錄」區塊＋候選列沿用鎖定唯讀行為）皆通過。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署，不逐步停下確認。
+
+下一步：Sprint 10 commit／push／正式站部署驗證；完成後開 Sprint 11 DOR；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 

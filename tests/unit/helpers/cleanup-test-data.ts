@@ -5,6 +5,7 @@ import {
   extractedItemEdits,
   extractedItems,
   healthProfiles,
+  observations,
   projects,
   sessions,
   users,
@@ -38,6 +39,9 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
       .where(inArray(documents.projectId, projectIds));
     const docIds = docs.map((doc) => doc.id);
     if (docIds.length > 0) {
+      // observations 有 FK 指向 documents／extracted_items，須先刪（E2-F4，KB-019 FK 順序教訓延續）
+      await db.delete(observations).where(inArray(observations.documentId, docIds));
+
       const items = await db
         .select({ id: extractedItems.id })
         .from(extractedItems)

@@ -50,6 +50,13 @@
       "when": 1784300723870,
       "tag": "0006_white_toro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784373020672,
+      "tag": "0007_large_nemesis",
+      "breakpoints": true
     }
   ]
 }

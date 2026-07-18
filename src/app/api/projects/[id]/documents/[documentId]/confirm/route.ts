@@ -2,6 +2,7 @@ import { apiError, apiOk } from "@/lib/api-response";
 import { withErrorEnvelope } from "@/lib/api-handler";
 import { attachSlidingCookie, requireSession } from "@/lib/require-session";
 import { auditAccessDenied } from "@/modules/projects";
+import { getQueueAdapter } from "@/modules/documents";
 import { confirmDocument } from "@/modules/extraction";
 
 type Context = { params: Promise<{ id: string; documentId: string }> };
@@ -17,7 +18,7 @@ export const POST = withErrorEnvelope<Context>(async (request, requestId, contex
   if (!("userId" in auth)) return auth;
 
   const { id, documentId } = await context.params;
-  const result = await confirmDocument(auth.userId, id, documentId);
+  const result = await confirmDocument(getQueueAdapter(), auth.userId, id, documentId);
   if (!result.ok) {
     if (result.code === "PROJECT_ACCESS_DENIED") {
       auditAccessDenied({

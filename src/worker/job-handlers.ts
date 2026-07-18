@@ -1,6 +1,7 @@
 import type { ClaimedJob } from "@/adapters";
 import { getStorageAdapter } from "@/modules/documents";
 import { runExtraction } from "@/modules/extraction";
+import { standardizeDocument } from "@/modules/observations";
 
 /**
  * 工作處理器註冊表。
@@ -20,5 +21,10 @@ export const jobHandlers: Record<string, JobHandler> = {
     const documentId = job.payload.documentId;
     if (typeof documentId !== "string") throw new Error("payload 缺少 documentId");
     await runExtraction(getStorageAdapter(), documentId);
+  },
+  "standardize-document": async (job) => {
+    const documentId = job.payload.documentId;
+    if (typeof documentId !== "string") throw new Error("payload 缺少 documentId");
+    await standardizeDocument(documentId);
   },
 };

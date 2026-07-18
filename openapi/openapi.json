@@ -266,6 +266,38 @@
         }
       }
     },
+    "/api/projects/{id}/observations": {
+      "get": {
+        "operationId": "listObservations",
+        "summary": "正式檢驗紀錄列表（E2-F4；唯讀，僅 active；上游 §17）",
+        "responses": {
+          "200": { "description": "items" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+        }
+      }
+    },
+    "/api/projects/{id}/observations/{observationId}": {
+      "patch": {
+        "operationId": "updateObservation",
+        "summary": "修正正式紀錄數值／單位（E2-F4，A42：整列新增＋前版 superseded，非原地覆寫）",
+        "responses": {
+          "200": { "description": "item（新版本）" },
+          "400": { "description": "INVALID_REQUEST" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "404": { "description": "NOT_FOUND" },
+          "409": { "description": "VERSION_CONFLICT" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteObservation",
+        "summary": "軟刪除正式紀錄（E2-F4）",
+        "responses": {
+          "200": { "description": "已刪除" },
+          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
+          "404": { "description": "NOT_FOUND" }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",

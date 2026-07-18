@@ -416,7 +416,7 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
     );
     await runExtraction(storage, documentId);
 
-    const blocked = await confirmDocument(ownerId, project.id, documentId);
+    const blocked = await confirmDocument(queue, ownerId, project.id, documentId);
     expect(blocked).toEqual({ ok: false, code: "PENDING_REVIEW_ITEMS" });
 
     const items = await getDb().select().from(extractedItems).where(eq(extractedItems.documentId, documentId));
@@ -427,7 +427,7 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
       });
     }
 
-    const confirmed = await confirmDocument(ownerId, project.id, documentId);
+    const confirmed = await confirmDocument(queue, ownerId, project.id, documentId);
     expect(confirmed).toEqual({ ok: true });
 
     const [document] = await getDb().select().from(documents).where(eq(documents.id, documentId));
@@ -454,7 +454,7 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
         status: "accepted",
       });
     }
-    await confirmDocument(ownerId, project.id, documentId);
+    await confirmDocument(queue, ownerId, project.id, documentId);
 
     const confirmedItems = await getDb()
       .select()
@@ -501,7 +501,7 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
       ok: false,
       code: "PROJECT_ACCESS_DENIED",
     });
-    expect(await confirmDocument(ownerId, projectB.id, documentId)).toEqual({
+    expect(await confirmDocument(queue, ownerId, projectB.id, documentId)).toEqual({
       ok: false,
       code: "PROJECT_ACCESS_DENIED",
     });
@@ -531,7 +531,7 @@ describe.skipIf(!hasDb)("extraction module（整合，需 DATABASE_URL）", () =
         status: "accepted",
       });
     }
-    await confirmDocument(ownerId, project.id, documentId);
+    await confirmDocument(queue, ownerId, project.id, documentId);
 
     const output = infoSpy.mock.calls.map((call) => String(call[0])).join("\n");
     expect(output).not.toContain("WBC");

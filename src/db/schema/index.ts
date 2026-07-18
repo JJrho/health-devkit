@@ -5,3 +5,7 @@ export { healthProfiles } from "./health-profiles";
 export { documents } from "./documents";
 export { extractedItems } from "./extracted-items";
 export { extractedItemEdits } from "./extracted-item-edits";
+export { testDefinitions } from "./test-definitions";
+export { testAliases } from "./test-aliases";
+export { testDefinitionUnits } from "./test-definition-units";
+export { observations } from "./observations";

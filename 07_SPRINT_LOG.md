@@ -1,6 +1,42 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 9 ✅ 已 commit（`b9f878d`）＋push＋正式站部署驗證通過（2026-07-17）——**E2-F3：人工確認與入庫模組**，E2-F3 正式結案。PO 已就 KB-021（惡意檔案掃描）拍板維持原計畫留到 E6-F2。開工前發現並修復了本專案文件系統一個長期缺口：「上游規格」章節引用長期查無實據（KB-027），已找到並補齊真正的完整規格。
+> 目前狀態：Sprint 10 開工＋部署中（2026-07-18）——**E2-F4：標準化與正式紀錄模組**。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署為止，不逐步停下確認。
+
+## Sprint 10 — E2-F4：標準化與正式紀錄模組 ✅ 已通過 DOR，實作＋測試＋瀏覽器驗證完成，準備 commit＋push＋部署
+
+- 期間：2026-07-18（單日完成）
+- DOR：✅ 通過（sprints/sprint-10-dor.md；A40–A44 隨 PO「開啟該 DOR 時即部署」授權一併追認）
+- 目標：把 E2-F3 確認完成（`confirmed`）的候選列，透過別名比對＋單位白名單自動標準化為正式數值紀錄（`observations`），供未來趨勢頁查詢
+
+### 根因／設計要點
+- **別名比對採精確字串，不做模糊比對**（A40）：`test_aliases` 僅存精確字串→`test_definitions` 對應。理由：健檢報告項目命名差異大，模糊比對容易誤連不同檢驗項目，違反醫療安全優先原則——「不能合併就寧可不畫線」。
+- **種子資料刻意保守**（A41）：僅為 4 個已知項目（WBC／Glucose／Cholesterol／Vitamin D）各建立 1 筆精確別名＋1 筆單位白名單（`factorToCanonical: "1"`，即恆等換算）。刻意不發明真實醫療單位換算係數（如 mg/dL↔mmol/L），即使這類換算在臨床上是常識，因為超出本 MVP Sprint 範圍與風險容忍度，需專業審查後才可加入。
+- **版本鏈設計與 E2-F3 不同**（A42）：`observations` 走「新增列＋舊列標記 superseded」模式（新版本就是可查詢的正式記錄本身），區別於 E2-F3 `extracted_item_edits` 的純稽核附加表模式（候選列本身仍是同一列，異動歷史另外存）。
+- **`observations` 掛在專案層級，非文件層級**（A43，依上游 `/api/v1/projects/{project_id}/observations` 路徑確認）：同一檢驗項目的版本鏈可能橫跨多次就診／多份文件。
+- **標準化由 Worker 非同步觸發**：`confirmDocument` 成功轉 `confirmed` 後，enqueue `standardize-document` job，不阻塞使用者的確認操作。
+
+### 驗收結果（AC-1～AC-9）
+| AC | 結果 |
+|---|---|
+| AC-1 | ✅ 整合測試＋瀏覽器端到端驗證：別名＋單位皆命中 → 建立 observation，數值正確換算 |
+| AC-2 | ✅ 整合測試：別名未對應 → 略過，`extracted_items` 不受影響 |
+| AC-3 | ✅ 整合測試：單位不在白名單或為空 → 略過 |
+| AC-4 | ✅ 整合測試：`status=rejected` 的候選列不標準化 |
+| AC-5 | ✅ 整合測試：PATCH 更新 → 新版本、舊列標記 `superseded`，舊值仍可查詢 |
+| AC-6a（同一使用者，錯誤專案範圍） | ✅ 整合測試：`NOT_FOUND`／`{ok:true, items:[]}`（比照 `findOwnedExtractedItem` 既有慣例，子資源不屬於指定父層不誤判為跨帳號） |
+| AC-6b（跨帳號） | ✅ 整合測試：陌生使用者一律 `PROJECT_ACCESS_DENIED` |
+| AC-7 | ✅ 整合測試：`numeric_value` 欄位型別以 `information_schema.columns` 直接查證為 `numeric`（憲法 §4） |
+| AC-8 | ✅ 整合測試：日誌不含健康內容 |
+| AC-9 | ✅ 整合測試：`confirmDocument` 成功後正確 enqueue `standardize-document` job |
+
+### 端到端驗證（合成資料，非真實個資）
+用 `pdf-lib` 合成含「WBC 6.2 10^3/uL 4.0-10.0」一列的 PDF，走完整真實管線（真實 Supabase Storage／Worker／API）：上傳→真實 Worker 解析→PATCH 全部候選列為 `accepted`→確認（`POST .../confirm`，觸發 `standardize-document` job）→真實 Worker 完成標準化→於瀏覽器登入該帳號檢視文件頁面，確認「已入庫的正式紀錄」區塊正確顯示 WBC／6.2／10^3/uL／原始值 6.2 10^3/uL；同時確認候選列表格已鎖定為唯讀（無編輯／接受／拒絕／刪除按鈕，狀態顯示「已接受」），沿用 E2-F3 的 confirmed-lockdown 行為。驗證完成後依既有隱私協定清除測試帳號、專案、文件、候選列、observations；暫存腳本已刪除，未留存於 repo。
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：Vitest 全專案 95 test／15 檔全綠（+11 新測試）；`pnpm build` 乾淨過；typecheck／lint 無新增錯誤
+- [x] 肉眼驗收：合成資料走完整真實管線＋瀏覽器互動驗證（標準化結果正確渲染＋鎖定狀態正確），非僅單元測試
+- [x] 修正皆反映於規格與文件：本節＋SDD §15／SYNC／ROADMAP 已更新；OpenAPI 已補 observations GET／PATCH／DELETE 端點
+- [ ] commit／push／正式站部署驗證：進行中
 
 ## Sprint 9 — E2-F3：人工確認與入庫模組 ✅ 已 commit＋push＋正式站部署驗證通過
 

@@ -305,8 +305,10 @@ export async function deleteExtractedItem(
  * 確認 transaction（AC-7／AC-8；上游 §18.1：review_required → confirmed）。
  * A38：要求該文件底下所有候選列皆已到達審查終態（edited/accepted/rejected），
  * 不允許還有 extracted/low_confidence 殘留就確認——避免使用者漏看某列。
+ * E2-F4：確認成功後 enqueue standardize-document（上游 §17「正式紀錄由確認建立」）。
  */
 export async function confirmDocument(
+  queue: QueueAdapter,
   userId: string,
   projectId: string,
   documentId: string,
@@ -334,6 +336,7 @@ export async function confirmDocument(
     .update(documents)
     .set({ status: "confirmed", version: document.version + 1, updatedAt: new Date() })
     .where(eq(documents.id, document.id));
+  await queue.enqueue({ type: "standardize-document", payload: { documentId: document.id } });
   logger.info("文件已確認", { status: "confirmed" });
   return { ok: true };
 }

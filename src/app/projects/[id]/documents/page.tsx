@@ -334,6 +334,8 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
             </ul>
           )}
 
+          <ObservationsSummary projectId={projectId} />
+
           <a
             href="/projects"
             className="mt-8 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
@@ -343,6 +345,61 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
         </>
       )}
     </main>
+  );
+}
+
+interface Observation {
+  id: string;
+  canonicalName: string;
+  numericValue: string;
+  unit: string;
+  rawValue: string;
+  rawUnit: string | null;
+}
+
+/** E2-F4：已入庫正式紀錄摘要（唯讀；SDD §4.6）。戰情／趨勢視覺化留待 E3。 */
+function ObservationsSummary({ projectId }: { projectId: string }) {
+  const [items, setItems] = useState<Observation[] | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/observations`)
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => setItems(data.items))
+      .catch(() => setError(true));
+  }, [projectId]);
+
+  if (error || items === null || items.length === 0) return null;
+
+  return (
+    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-xl font-semibold text-slate-900">已入庫的正式紀錄</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left text-base">
+          <thead>
+            <tr className="border-b-2 border-slate-300">
+              <th className="py-2 pr-4">項目</th>
+              <th className="py-2 pr-4">數值</th>
+              <th className="py-2 pr-4">單位</th>
+              <th className="py-2 pr-4">原始值</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((observation) => (
+              <tr key={observation.id} className="border-b border-slate-200">
+                <td className="py-2 pr-4">{observation.canonicalName}</td>
+                <td className="py-2 pr-4">{observation.numericValue}</td>
+                <td className="py-2 pr-4">{observation.unit}</td>
+                <td className="py-2 pr-4 text-slate-500">
+                  {observation.rawValue}
+                  {observation.rawUnit ? ` ${observation.rawUnit}` : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
