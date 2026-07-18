@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { FormMessage, SubmitButton, TextField } from "@/components/auth/auth-ui";
 
 interface Project {
@@ -57,12 +58,12 @@ export default function ProjectsPage() {
         <FormMessage kind="error" text="請先登入才能查看您的健康專案。" />
       )}
       {loadState === "unauthorized" && (
-        <a
+        <Link
           href="/login"
           className="mt-2 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
         >
           前往登入
-        </a>
+        </Link>
       )}
 
       {loadState === "error" && (
@@ -249,7 +250,14 @@ function ProjectRow({
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <h2 className="text-2xl font-semibold text-slate-900">{project.name}</h2>
+            <h2 className="text-2xl font-semibold text-slate-900">
+              <Link
+                href={`/projects/${project.id}`}
+                className="underline-offset-4 hover:underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+              >
+                {project.name}
+              </Link>
+            </h2>
             {isArchived && (
               <span className="rounded-full border-2 border-amber-400 bg-amber-50 px-3 py-1 text-base text-amber-800">
                 已封存
@@ -262,24 +270,24 @@ function ProjectRow({
             )}
           </div>
           <div className="flex flex-wrap gap-3">
-            <a
+            <Link
               href={`/projects/${project.id}/profile`}
               className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
               個人健康背景
-            </a>
-            <a
+            </Link>
+            <Link
               href={`/projects/${project.id}/documents`}
               className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
               健檢文件
-            </a>
-            <a
+            </Link>
+            <Link
               href={`/projects/${project.id}/trends`}
               className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
               趨勢分析
-            </a>
+            </Link>
             {!isArchived && (
               <button
                 type="button"

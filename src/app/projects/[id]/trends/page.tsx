@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import * as echarts from "echarts";
 import { FormMessage } from "@/components/auth/auth-ui";
 
@@ -88,18 +89,18 @@ export default function TrendsPage({ params }: { params: Promise<{ id: string }>
           )}
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <a
+            <Link
               href={`/projects/${projectId}/documents`}
               className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
               健檔文件
-            </a>
-            <a
+            </Link>
+            <Link
               href="/projects"
               className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
               回專案列表
-            </a>
+            </Link>
           </div>
         </>
       )}

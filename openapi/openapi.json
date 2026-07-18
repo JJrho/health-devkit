@@ -521,6 +521,20 @@
           }
         }
       }
+    },
+    "/api/projects/{id}/dashboard": {
+      "get": {
+        "operationId": "getDashboard",
+        "summary": "E3-F1：健康戰情頁區塊 1／3 聚合（目前健康狀態＋早期變化，僅 status=active observations，A50 不做超標判讀）",
+        "responses": {
+          "200": {
+            "description": "{ currentStatus: DashboardStatusItem[], earlyChanges: DashboardChangeItem[] }"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
+        }
+      }
     }
   },
   "components": {

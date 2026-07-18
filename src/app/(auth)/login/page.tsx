@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   AuthCard,
   FormMessage,
@@ -47,12 +48,12 @@ export default function LoginPage() {
     <AuthCard title="登入">
       <FormMessage kind={message.kind} text={message.text} />
       {message.kind === "success" && (
-        <a
+        <Link
           href="/projects"
           className="mb-4 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
         >
           前往我的健康專案
-        </a>
+        </Link>
       )}
       <form onSubmit={handleSubmit} noValidate>
         <TextField

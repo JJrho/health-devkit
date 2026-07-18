@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { FormMessage, TextareaField } from "@/components/auth/auth-ui";
 
 /** 上游 §11.1（必要背景）＋§12.2（運動前必要資訊）；本輪自由文字承接，選項/驗證規則留待 E5-F1（A16） */
@@ -125,12 +126,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
       {loadState === "unauthorized" && (
         <>
           <FormMessage kind="error" text="請先登入才能填寫健康背景。" />
-          <a
+          <Link
             href="/login"
             className="mt-2 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
           >
             前往登入
-          </a>
+          </Link>
         </>
       )}
       {loadState === "denied" && (
@@ -170,12 +171,12 @@ export default function ProfilePage({ params }: { params: Promise<{ id: string }
             ))}
           </section>
 
-          <a
+          <Link
             href="/projects"
             className="inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
           >
             回專案列表
-          </a>
+          </Link>
         </>
       )}
     </main>

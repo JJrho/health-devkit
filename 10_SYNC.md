@@ -1,13 +1,15 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～11 ✅（2026-07-12～07-18）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1／E2-F2／E2-F3／E2-F4／E3-F2 Feature 結案（9/20）**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 11（E3-F2：趨勢圖與等價資料表）已 commit（`01ba99b`）＋push＋正式站部署驗證通過；部署驗證過程發現 worker 部署交接期存在數分鐘競態窗口，已登記 KB-028**。**Sprint 10（E2-F4：標準化與正式紀錄模組）已 commit（`cde2e5e`）＋push＋正式站部署驗證通過，PO 指示「開啟該 DOR 時即部署」，本輪未逐步停下確認**。**Sprint 9（E2-F3：人工確認與入庫模組）已 commit（`b9f878d`）＋push＋正式站部署驗證通過，PO 已就 KB-021 拍板維持原計畫留到 E6-F2**。⚠️ Sprint 8 部署驗證過程中發現正式站 worker 缺環境變數（KB-025）並發生**本專案第 4 次意外機密外洩事故**（KB-026）——已完成憑證輪替、規則已強化為「zeabur variable create／update／delete 一律不可直接查看輸出」。**KB-027：「上游規格」章節引用長期查無實據，已找到並補齊真正的完整規格（archive/upstream_spec/）**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
+開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～11 ✅（2026-07-12～07-18）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1／E2-F2／E2-F3／E2-F4／E3-F2 Feature 結案（9/20）**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 12（E3-F1：健康戰情 Dashboard）實作＋測試＋瀏覽器驗證完成，尚待 PO 確認 commit／push／部署時機**。**Sprint 11（E3-F2：趨勢圖與等價資料表）已 commit（`01ba99b`）＋push＋正式站部署驗證通過；部署驗證過程發現 worker 部署交接期存在數分鐘競態窗口，已登記 KB-028**。**Sprint 10（E2-F4：標準化與正式紀錄模組）已 commit（`cde2e5e`）＋push＋正式站部署驗證通過，PO 指示「開啟該 DOR 時即部署」，本輪未逐步停下確認**。**Sprint 9（E2-F3：人工確認與入庫模組）已 commit（`b9f878d`）＋push＋正式站部署驗證通過，PO 已就 KB-021 拍板維持原計畫留到 E6-F2**。⚠️ Sprint 8 部署驗證過程中發現正式站 worker 缺環境變數（KB-025）並發生**本專案第 4 次意外機密外洩事故**（KB-026）——已完成憑證輪替、規則已強化為「zeabur variable create／update／delete 一律不可直接查看輸出」。**KB-027：「上游規格」章節引用長期查無實據，已找到並補齊真正的完整規格（archive/upstream_spec/）**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
 
 ## 2. 目前版本
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格見 `archive/upstream_spec/`（2026-07-17 補齊，KB-027）；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
-**Sprint 11（E3-F2：趨勢圖與等價資料表，正式結案）**：把 E2-F4 已標準化的正式紀錄依測項分組畫成時間序列趨勢圖＋等價可存取資料表，新增 `/projects/[id]/trends`（上游 §6.2 十個工作區頁面之一）。開工前發現兩個先前輪次合理省略、本輪才需要補齊的資料缺口：`documents.reportDate`（A45，趨勢圖時間軸，為 null 時 fallback 上傳時間並標記 `dateEstimated`）、`observations.rawReferenceRange`（A46，標準化時原樣複製，落實憲法 §4 原值永久保留）。新增 `PATCH /documents/{id}`（僅開放編輯日期，不比照 confirmed 鎖定，A47）與 `GET /trends`（依測項分組＋依 unit 再分組的縱深防禦拆分，A48）。ECharts 折線圖＋純 HTML 等價資料表並列（WCAG 2.2 AA）。全專案 105 個測試（+10）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器互動驗證（多份不同日期文件正確排序、日期 fallback＋補登即時反映、drill-down 正確觸發）皆通過。已 commit（`01ba99b`）＋push＋正式站部署驗證通過。**部署驗證發現新知識點（KB-028）**：worker 顯示 `RUNNING` 後數分鐘內，舊版程式碼容器可能仍短暫存活並搶到佇列工作（新增欄位為 nullable，舊程式碼靜默留空、不報錯）——第一次驗證 `referenceRange` 回 `null`，相隔 3 分鐘重跑即正確，確認為交接期暫時現象非程式錯誤。
+**Sprint 12（E3-F1：健康戰情 Dashboard，實作＋測試＋瀏覽器驗證完成，待 PO 確認部署，E3 Epic 全數完成）**：新增專案預設首頁 `/projects/[id]`，依上游 §26 六區塊版面呈現健康戰情總覽。開工前釐清一個排序疑慮——上游 §26 完整線框圖描繪行動計畫已存在之後的畫面，一度以為該延後到 E4／E5 之後；查證 05_BACKLOG（E3-F1 前置依賴僅列 E2-F4）與上游 §7.1（「查看健康戰情」排在「建立行動計畫」之前）後確認不需延後（A51）。六區塊全建置：「目前健康狀態」／「早期變化」用真實資料呈現且不做電腦化超標判讀（A50，真正臨床解讀留給未來 E4-F3）；其餘 4 區塊誠實占位「尚未推出」。附帶修正全站既有 `<a href="/projects">` 應改用 `<Link>` 的技術債（新頁面觸發 ESLint 規則正確識別）。全專案 111 個測試（+6）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器互動驗證皆通過。**尚待 PO 確認 commit／push／正式站部署時機**。
+
+Sprint 11（E3-F2：趨勢圖與等價資料表，正式結案）：把 E2-F4 已標準化的正式紀錄依測項分組畫成時間序列趨勢圖＋等價可存取資料表，新增 `/projects/[id]/trends`（上游 §6.2 十個工作區頁面之一）。開工前發現兩個先前輪次合理省略、本輪才需要補齊的資料缺口：`documents.reportDate`（A45，趨勢圖時間軸，為 null 時 fallback 上傳時間並標記 `dateEstimated`）、`observations.rawReferenceRange`（A46，標準化時原樣複製，落實憲法 §4 原值永久保留）。新增 `PATCH /documents/{id}`（僅開放編輯日期，不比照 confirmed 鎖定，A47）與 `GET /trends`（依測項分組＋依 unit 再分組的縱深防禦拆分，A48）。ECharts 折線圖＋純 HTML 等價資料表並列（WCAG 2.2 AA）。全專案 105 個測試（+10）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器互動驗證（多份不同日期文件正確排序、日期 fallback＋補登即時反映、drill-down 正確觸發）皆通過。已 commit（`01ba99b`）＋push＋正式站部署驗證通過。**部署驗證發現新知識點（KB-028）**：worker 顯示 `RUNNING` 後數分鐘內，舊版程式碼容器可能仍短暫存活並搶到佇列工作（新增欄位為 nullable，舊程式碼靜默留空、不報錯）——第一次驗證 `referenceRange` 回 `null`，相隔 3 分鐘重跑即正確，確認為交接期暫時現象非程式錯誤。
 
 Sprint 10（E2-F4：標準化與正式紀錄模組，正式結案，E2 Epic 全數完成）：把 E2-F3 確認完成的候選列，透過別名精確比對（A40，不做模糊比對）＋單位白名單自動標準化為正式數值紀錄（`observations`），由 Worker 於確認成功後非同步觸發。新增 `test_definitions`／`test_aliases`／`test_definition_units`／`observations` 4 張表；種子資料刻意保守（A41，僅 4 個已知項目、恆等換算，不發明真實醫療單位換算係數）；版本鏈採「新增列＋舊列 superseded」模式（A42，區別於 E2-F3 附加異動歷史表模式）；`observations` 掛專案層級（A43）。全專案 95 個測試（+11）／typecheck／lint／`pnpm build` 全綠。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署，未逐步停下確認。已 commit（`cde2e5e`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，新路由 404→401 確認上線，對正式站真實合成資料端到端功能驗證：上傳→真實 Worker 解析→接受→確認→真實 Worker 標準化→observations API 正確回傳皆成功）。
 
@@ -22,10 +24,10 @@ Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）：A22（`pdfjs-dist` 伺�
 Sprint 6（E2-F1 上傳會話與預覽模組）：已 commit（`b2b413f`）＋push＋正式站部署驗證通過。⚠️ A21（惡意檔案掃描缺口）正式生效，登記 KB-021。
 
 ## 4. 下一步
-**E3-F2 已正式結案並部署驗證通過**，下一輪開 Sprint 12 DOR（E3-F1 健康戰情 Dashboard 或依既定順序推進 E4）。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。
+**PO 確認 Sprint 12 commit／push／正式站部署時機**；完成後開 Sprint 13 DOR（依既定順序推進 E4：知識庫與串流問答引擎）。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。
 
 ## 5. 最高優先事項
-Sprint 12 DOR 規劃；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC：E4-F3 引用驗證。
+Sprint 12 部署時機確認；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC：E4-F3 引用驗證。
 
 ## 6. 不可破壞的原則
 憲法 §3 醫療安全全列；未確認資料不入正式分析；健康內容不入日誌（白名單 redaction 已落地）。**機密處理鐵則（Sprint 8 再度強化）：絕不對含機密的檔案／指令輸出使用會印出完整內容的工具；`zeabur variable create／update／delete` 一律不可直接查看標準輸出（不只 `list`，這三者的成功確認訊息也會印出完整既有變數表，KB-026 實測證實）——一律重導向到檔案、用 `grep -c` 之類只回傳數字的方式確認成功，讀完立刻刪除。本專案已發生 4 次意外機密外洩，這條規則被違反過不只一次，往後必須嚴格遵守，不可自行判斷「這次應該沒關係」。
