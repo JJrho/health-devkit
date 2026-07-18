@@ -20,7 +20,8 @@ export type DocumentErrorCode =
   | "INVALID_REQUEST"
   | "FILE_TOO_LARGE"
   | "FILE_TYPE_NOT_SUPPORTED"
-  | "FILE_CORRUPTED";
+  | "FILE_CORRUPTED"
+  | "VERSION_CONFLICT";
 
 export type DocumentResult =
   | { ok: true; document: DocumentRow }
@@ -202,6 +203,30 @@ export async function deleteDocument(
     .where(eq(documents.id, document.id))
     .returning();
   return { ok: true, document: rows[0]! };
+}
+
+/**
+ * E3-F2／A47：編輯 reportDate（檢驗／報告日期）——純描述性中繼資料，
+ * 不比照 E2-F3 confirmed 鎖定規則，任何未刪除的文件狀態皆可編輯。
+ * `reportDate: null` 代表清空日期（回到 fallback 上傳時間顯示）。
+ */
+export async function updateDocument(
+  userId: string,
+  projectId: string,
+  documentId: string,
+  input: { version: number; reportDate: string | null },
+): Promise<DocumentResult> {
+  const document = await findOwnedDocument(userId, projectId, documentId);
+  if (!document) return { ok: false, code: "PROJECT_ACCESS_DENIED" };
+  if (document.version !== input.version) return { ok: false, code: "VERSION_CONFLICT" };
+
+  const rows = await getDb()
+    .update(documents)
+    .set({ reportDate: input.reportDate, version: document.version + 1, updatedAt: new Date() })
+    .where(and(eq(documents.id, document.id), eq(documents.version, input.version)))
+    .returning();
+  if (!rows[0]) return { ok: false, code: "VERSION_CONFLICT" };
+  return { ok: true, document: rows[0] };
 }
 
 /** AC-1（列表）：排除已刪除 */

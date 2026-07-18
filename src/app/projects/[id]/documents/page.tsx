@@ -16,6 +16,8 @@ interface DocumentItem {
     | "processing_failed"
     | "confirmed"
     | "deleted";
+  reportDate: string | null;
+  version: number;
 }
 
 type ExtractedItemStatus = "extracted" | "low_confidence" | "edited" | "accepted" | "rejected";
@@ -336,12 +338,20 @@ export default function DocumentsPage({ params }: { params: Promise<{ id: string
 
           <ObservationsSummary projectId={projectId} />
 
-          <a
-            href="/projects"
-            className="mt-8 inline-block font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
-          >
-            回專案列表
-          </a>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <a
+              href={`/projects/${projectId}/trends`}
+              className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              趨勢分析
+            </a>
+            <a
+              href="/projects"
+              className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              回專案列表
+            </a>
+          </div>
         </>
       )}
     </main>
@@ -403,6 +413,91 @@ function ObservationsSummary({ projectId }: { projectId: string }) {
   );
 }
 
+/** E3-F2／A47：檢驗日期編輯——描述性中繼資料，任何未刪除文件狀態皆可編輯 */
+function ReportDateEditor({
+  projectId,
+  documentId,
+  reportDate,
+  version,
+  onSaved,
+}: {
+  projectId: string;
+  documentId: string;
+  reportDate: string | null;
+  version: number;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(reportDate ?? "");
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function save() {
+    setSaving(true);
+    setErrorMessage(null);
+    const response = await fetch(`/api/projects/${projectId}/documents/${documentId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ version, reportDate: value === "" ? null : value }),
+    });
+    setSaving(false);
+    if (response.ok) {
+      setEditing(false);
+      onSaved();
+    } else {
+      const body = await response.json().catch(() => ({}));
+      setErrorMessage(body.error?.message ?? "更新失敗，請再試一次。");
+    }
+  }
+
+  if (!editing) {
+    return (
+      <p className="text-base text-slate-600">
+        檢驗日期：{reportDate ?? "未設定"}{" "}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+        >
+          編輯
+        </button>
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="rounded-lg border-2 border-slate-300 px-3 py-2 text-base"
+      />
+      <button
+        type="button"
+        disabled={saving}
+        onClick={save}
+        className="rounded-lg bg-blue-700 px-4 py-2 text-base font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:bg-slate-400"
+      >
+        儲存
+      </button>
+      <button
+        type="button"
+        disabled={saving}
+        onClick={() => {
+          setEditing(false);
+          setValue(reportDate ?? "");
+          setErrorMessage(null);
+        }}
+        className="rounded-lg border-2 border-slate-400 px-4 py-2 text-base font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+      >
+        取消
+      </button>
+      {errorMessage && <span className="text-base text-red-700">{errorMessage}</span>}
+    </div>
+  );
+}
+
 function DocumentRow({
   document,
   projectId,
@@ -432,6 +527,13 @@ function DocumentRow({
           <p className="text-base text-slate-600">
             {formatBytes(document.sizeBytes)} · {DOCUMENT_STATUS_LABEL[document.status]}
           </p>
+          <ReportDateEditor
+            projectId={projectId}
+            documentId={document.id}
+            reportDate={document.reportDate}
+            version={document.version}
+            onSaved={onRefresh}
+          />
         </div>
         <div className="flex flex-wrap gap-3">
           {PREVIEWABLE_STATUSES.has(document.status) && (

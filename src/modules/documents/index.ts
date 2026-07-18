@@ -34,6 +34,7 @@ export {
   deleteDocument,
   getPreviewUrl,
   listDocuments,
+  updateDocument,
   uploadPart,
 } from "./service";
 export type { DocumentErrorCode, DocumentResult } from "./service";

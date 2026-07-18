@@ -274,6 +274,12 @@ function ProjectRow({
             >
               健檢文件
             </a>
+            <a
+              href={`/projects/${project.id}/trends`}
+              className="rounded-lg border-2 border-slate-400 px-5 py-3 text-lg font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              趨勢分析
+            </a>
             {!isArchived && (
               <button
                 type="button"

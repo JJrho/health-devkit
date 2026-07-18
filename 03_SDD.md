@@ -142,7 +142,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E2-F4 標準化與正式紀錄模組完成，E2-F4 正式結案、E2 Epic 全數完成（2026-07-18，Sprint 10，Feature 8/20）**：把 E2-F3 確認完成的候選列，透過別名精確比對＋單位白名單自動標準化為正式數值紀錄（`observations`），由 Worker 於 `confirmDocument` 成功後非同步觸發（`standardize-document` job）。新增 4 張表：`test_definitions`／`test_aliases`（僅精確字串比對，A40，避免模糊比對誤連不同檢驗項目）／`test_definition_units`（單位白名單＋`factorToCanonical`）／`observations`（`numeric` 型別，版本鏈採「新增列＋舊列 superseded」模式，A42，區別於 E2-F3 純附加異動歷史表模式）。種子資料刻意保守（A41）：僅 4 個已知項目各 1 筆精確別名＋恆等換算，不發明真實醫療單位換算係數。`observations` 掛在專案層級（A43，依上游 API 路徑確認），支援版本鏈橫跨多份文件。全專案 95 個測試（+11）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器驗證（標準化結果正確渲染於「已入庫的正式紀錄」區塊＋候選列沿用鎖定唯讀行為）皆通過。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署，未逐步停下確認。已 commit（`cde2e5e`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，新路由 404→401 確認上線，對正式站真實合成資料端到端功能驗證：上傳→真實 Worker 解析→接受→確認→真實 Worker 標準化→`observations` API 正確回傳皆成功）。
 
-下一步：開 Sprint 11 DOR（E3 健康洞察呈現層）；或先處理 KB-018／KB-020 已知限制。
+**E3-F2 趨勢圖與等價資料表實作完成（2026-07-18，Sprint 11，Feature 9/20）**：把 E2-F4 已標準化的正式紀錄依測項分組，畫成時間序列趨勢圖＋等價可存取資料表，每點可回查來源（上游 §6.2「趨勢分析」，十個工作區頁面之一，新增 `/projects/[id]/trends`）。開工前撰寫 DOR 時逐條核對上游 §17／§28.5，發現兩個先前輪次因範圍收斂而合理省略、本輪下游功能需要才補上的資料缺口：`documents` 補上 `reportDate`（A45，趨勢圖時間軸；為 null 時 fallback 為上傳時間並標記 `dateEstimated`）、`observations` 補上 `rawReferenceRange`（A46，標準化時從 `extracted_items` 原樣複製，落實憲法 §4「原值永遠保留」延伸至參考區間）。新增 `PATCH /documents/{id}`（僅開放編輯 `reportDate`，不比照 E2-F3 confirmed 鎖定規則，A47——純描述性中繼資料，任何未刪除文件狀態皆可編輯）與 `GET /projects/{id}/trends`（依測項分組，額外依 `unit` 再分組作縱深防禦，若同一測項出現異常混線的單位就拆成獨立子序列並標記 `unitMismatch`，絕不靜默合併，A48）。UI 用 ECharts 折線圖＋純 HTML 等價資料表並列（WCAG 2.2 AA，上游 §27.4）。全專案 105 個測試（+10）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器互動驗證（三份不同日期文件正確依日期排序、fallback 日期正確標記估計、補上日期後即時反映、drill-down 正確觸發）皆通過。**尚待**：PO 確認 commit／push／正式站部署時機。已知限制：E3-F1（健康戰情 Dashboard）依既定順序排在 E4／E5 之後（六區塊高度依賴尚未實作的行動計畫等資料），本輪未觸及；參考區間本輪僅資料表呈現，圖表未疊視覺帶。
+
+下一步：PO 確認 Sprint 11 commit／push／正式站部署時機；完成後開 Sprint 12 DOR（E3-F1 健康戰情 Dashboard 或依既定順序推進 E4）；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 

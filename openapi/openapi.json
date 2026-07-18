@@ -11,9 +11,15 @@
         "operationId": "register",
         "summary": "註冊（含條款同意 C11；既有帳號回 409 EMAIL_EXISTS）",
         "responses": {
-          "200": { "description": "已建立並寄出驗證信" },
-          "400": { "description": "缺欄位／未同意／弱密碼（ErrorEnvelope）" },
-          "409": { "description": "EMAIL_EXISTS（ErrorEnvelope）" }
+          "200": {
+            "description": "已建立並寄出驗證信"
+          },
+          "400": {
+            "description": "缺欄位／未同意／弱密碼（ErrorEnvelope）"
+          },
+          "409": {
+            "description": "EMAIL_EXISTS（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -22,9 +28,15 @@
         "operationId": "login",
         "summary": "登入（C6 未驗證可登入；C7 鎖定回 429；設定 HttpOnly session cookie）",
         "responses": {
-          "200": { "description": "登入成功，回 emailVerified 旗標" },
-          "401": { "description": "AUTH_INVALID_CREDENTIALS（統一訊息防枚舉）" },
-          "429": { "description": "AUTH_LOCKED（C7）" }
+          "200": {
+            "description": "登入成功，回 emailVerified 旗標"
+          },
+          "401": {
+            "description": "AUTH_INVALID_CREDENTIALS（統一訊息防枚舉）"
+          },
+          "429": {
+            "description": "AUTH_LOCKED（C7）"
+          }
         }
       }
     },
@@ -32,14 +44,22 @@
       "post": {
         "operationId": "logout",
         "summary": "登出（撤銷 session＋清 cookie；冪等）",
-        "responses": { "200": { "description": "已登出" } }
+        "responses": {
+          "200": {
+            "description": "已登出"
+          }
+        }
       }
     },
     "/api/auth/forgot-password": {
       "post": {
         "operationId": "forgotPassword",
         "summary": "寄送重設信（C9；一律回成功防枚舉）",
-        "responses": { "200": { "description": "已受理" } }
+        "responses": {
+          "200": {
+            "description": "已受理"
+          }
+        }
       }
     },
     "/api/auth/me": {
@@ -47,8 +67,12 @@
         "operationId": "getMe",
         "summary": "目前登入者（session 驗證＋滑動展延 C8；附最近存取專案 id）",
         "responses": {
-          "200": { "description": "email、emailVerified、mostRecentProjectId" },
-          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+          "200": {
+            "description": "email、emailVerified、mostRecentProjectId"
+          },
+          "401": {
+            "description": "AUTH_REQUIRED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -57,17 +81,27 @@
         "operationId": "createProject",
         "summary": "建立健康專案（AC-1；C6 未驗證亦可建立）",
         "responses": {
-          "200": { "description": "已建立，owner＝目前登入者、version=1" },
-          "400": { "description": "缺專案名稱（ErrorEnvelope）" },
-          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+          "200": {
+            "description": "已建立，owner＝目前登入者、version=1"
+          },
+          "400": {
+            "description": "缺專案名稱（ErrorEnvelope）"
+          },
+          "401": {
+            "description": "AUTH_REQUIRED（ErrorEnvelope）"
+          }
         }
       },
       "get": {
         "operationId": "listProjects",
         "summary": "專案列表（AC-2；排除已刪除，附最近存取專案 id）",
         "responses": {
-          "200": { "description": "items＋mostRecentProjectId" },
-          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" }
+          "200": {
+            "description": "items＋mostRecentProjectId"
+          },
+          "401": {
+            "description": "AUTH_REQUIRED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -76,26 +110,42 @@
         "operationId": "getProject",
         "summary": "取得單一專案（四層權限鏈；標記最近存取）",
         "responses": {
-          "200": { "description": "專案內容" },
-          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（AC-6，跨帳號一律拒絕＋稽核）" }
+          "200": {
+            "description": "專案內容"
+          },
+          "401": {
+            "description": "AUTH_REQUIRED（ErrorEnvelope）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（AC-6，跨帳號一律拒絕＋稽核）"
+          }
         }
       },
       "patch": {
         "operationId": "renameProject",
         "summary": "改名（AC-3；OCC 樂觀鎖，version 不符回 409）",
         "responses": {
-          "200": { "description": "已更新，version+1" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "409": { "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）" }
+          "200": {
+            "description": "已更新，version+1"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "409": {
+            "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）"
+          }
         }
       },
       "delete": {
         "operationId": "deleteProject",
         "summary": "刪除（AC-5；任一非刪除狀態→deleted，軟刪除）",
         "responses": {
-          "200": { "description": "已刪除" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "已刪除"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -104,8 +154,12 @@
         "operationId": "archiveProject",
         "summary": "封存（AC-4；active→archived，已封存者冪等成功）",
         "responses": {
-          "200": { "description": "已封存" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "已封存"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -114,8 +168,12 @@
         "operationId": "restoreProject",
         "summary": "還原（AC-4；archived→active，已是 active 者冪等成功；deleted 不可還原）",
         "responses": {
-          "200": { "description": "已還原" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "已還原"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -124,18 +182,30 @@
         "operationId": "getProfile",
         "summary": "取得個人健康背景（AC-1／AC-7；尚未建立回 profile:null，非 404）",
         "responses": {
-          "200": { "description": "profile 內容或 null" },
-          "401": { "description": "AUTH_REQUIRED（ErrorEnvelope）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "profile 內容或 null"
+          },
+          "401": {
+            "description": "AUTH_REQUIRED（ErrorEnvelope）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       },
       "put": {
         "operationId": "upsertProfile",
         "summary": "建立或更新個人健康背景（AC-2／AC-3；autosave＋OCC 樂觀鎖）",
         "responses": {
-          "200": { "description": "已儲存，version+1" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "409": { "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）" }
+          "200": {
+            "description": "已儲存，version+1"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "409": {
+            "description": "VERSION_CONFLICT（ErrorEnvelope，不靜默覆寫）"
+          }
         }
       }
     },
@@ -144,8 +214,12 @@
         "operationId": "listDocuments",
         "summary": "文件列表（排除已刪除）",
         "responses": {
-          "200": { "description": "items" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "items"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -154,9 +228,15 @@
         "operationId": "createUploadSession",
         "summary": "建立上傳會話（AC-1／AC-2；同 idempotencyKey 冪等；C6 未驗證鎖定；C12 份數上限）",
         "responses": {
-          "200": { "description": "document（status=uploading）" },
-          "400": { "description": "INVALID_REQUEST／DOCUMENT_QUOTA_EXCEEDED（ErrorEnvelope）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED／EMAIL_VERIFICATION_REQUIRED（ErrorEnvelope）" }
+          "200": {
+            "description": "document（status=uploading）"
+          },
+          "400": {
+            "description": "INVALID_REQUEST／DOCUMENT_QUOTA_EXCEEDED（ErrorEnvelope）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED／EMAIL_VERIFICATION_REQUIRED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -165,9 +245,15 @@
         "operationId": "uploadPart",
         "summary": "上傳分段（AC-3；同號覆寫，天然支援重試）",
         "responses": {
-          "200": { "description": "已收到" },
-          "400": { "description": "INVALID_REQUEST（會話非 uploading 狀態）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "已收到"
+          },
+          "400": {
+            "description": "INVALID_REQUEST（會話非 uploading 狀態）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -176,9 +262,15 @@
         "operationId": "completeUpload",
         "summary": "完成上傳（AC-3～AC-5；串接分段、驗證實際內容、大小/頁數；E2-F2 起自動排入解析）",
         "responses": {
-          "200": { "description": "document（status=processing，已自動排入解析工作）" },
-          "400": { "description": "FILE_TOO_LARGE／FILE_TYPE_NOT_SUPPORTED／FILE_CORRUPTED（ErrorEnvelope）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "document（status=processing，已自動排入解析工作）"
+          },
+          "400": {
+            "description": "FILE_TOO_LARGE／FILE_TYPE_NOT_SUPPORTED／FILE_CORRUPTED（ErrorEnvelope）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -187,8 +279,30 @@
         "operationId": "deleteDocument",
         "summary": "取消或刪除（AC-9；皆軟刪除，同 idempotencyKey 可重傳）",
         "responses": {
-          "200": { "description": "document（status=deleted）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "document（status=deleted）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDocument",
+        "summary": "E3-F2／A47：僅開放編輯 reportDate（檢驗／報告日期），任何未刪除狀態皆可編輯，不比照 E2-F3 confirmed 鎖定規則",
+        "responses": {
+          "200": {
+            "description": "document（reportDate 已更新）"
+          },
+          "400": {
+            "description": "INVALID_REQUEST（ErrorEnvelope）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "409": {
+            "description": "VERSION_CONFLICT（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -197,9 +311,15 @@
         "operationId": "getDocumentPreview",
         "summary": "短效 signed URL（AC-10；憲法 §4：不入日誌）",
         "responses": {
-          "200": { "description": "url" },
-          "400": { "description": "INVALID_REQUEST（尚未完成上傳）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "url"
+          },
+          "400": {
+            "description": "INVALID_REQUEST（尚未完成上傳）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -208,17 +328,27 @@
         "operationId": "listExtractedItems",
         "summary": "辨識候選項列表（唯讀）",
         "responses": {
-          "200": { "description": "items" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "items"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       },
       "post": {
         "operationId": "createExtractedItem",
         "summary": "手動新增候選列（E2-F3；上游 §28.4「可新增」，AI 漏抓時使用者自行輸入）",
         "responses": {
-          "200": { "description": "item（status=accepted）" },
-          "400": { "description": "INVALID_REQUEST（缺欄位或文件不在 review_required）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "item（status=accepted）"
+          },
+          "400": {
+            "description": "INVALID_REQUEST（缺欄位或文件不在 review_required）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -227,20 +357,36 @@
         "operationId": "updateExtractedItem",
         "summary": "編輯內容或變更 accepted/rejected 狀態（E2-F3；帶欄位視為編輯並寫入異動歷史，只帶 status 則為純狀態變更）",
         "responses": {
-          "200": { "description": "item" },
-          "400": { "description": "INVALID_REQUEST" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "404": { "description": "NOT_FOUND" },
-          "409": { "description": "VERSION_CONFLICT" }
+          "200": {
+            "description": "item"
+          },
+          "400": {
+            "description": "INVALID_REQUEST"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "404": {
+            "description": "NOT_FOUND"
+          },
+          "409": {
+            "description": "VERSION_CONFLICT"
+          }
         }
       },
       "delete": {
         "operationId": "deleteExtractedItem",
         "summary": "刪除候選列（E2-F3；徹底移除，與 status=rejected 不同語意）",
         "responses": {
-          "200": { "description": "已刪除" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "404": { "description": "NOT_FOUND" }
+          "200": {
+            "description": "已刪除"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "404": {
+            "description": "NOT_FOUND"
+          }
         }
       }
     },
@@ -249,9 +395,15 @@
         "operationId": "confirmDocument",
         "summary": "確認 transaction（E2-F3；上游 §18.1 review_required → confirmed；要求全部候選列已審查）",
         "responses": {
-          "200": { "description": "documents.status 轉 confirmed" },
-          "400": { "description": "INVALID_REQUEST 或 PENDING_REVIEW_ITEMS" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "documents.status 轉 confirmed"
+          },
+          "400": {
+            "description": "INVALID_REQUEST 或 PENDING_REVIEW_ITEMS"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -260,9 +412,15 @@
         "operationId": "reprocessDocument",
         "summary": "重新解析（AC-7；清空舊候選、重新 enqueue）",
         "responses": {
-          "200": { "description": "已重新排入解析" },
-          "400": { "description": "INVALID_REQUEST（尚未完成上傳）" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "已重新排入解析"
+          },
+          "400": {
+            "description": "INVALID_REQUEST（尚未完成上傳）"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -271,8 +429,12 @@
         "operationId": "listObservations",
         "summary": "正式檢驗紀錄列表（E2-F4；唯讀，僅 active；上游 §17）",
         "responses": {
-          "200": { "description": "items" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" }
+          "200": {
+            "description": "items"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          }
         }
       }
     },
@@ -281,20 +443,36 @@
         "operationId": "updateObservation",
         "summary": "修正正式紀錄數值／單位（E2-F4，A42：整列新增＋前版 superseded，非原地覆寫）",
         "responses": {
-          "200": { "description": "item（新版本）" },
-          "400": { "description": "INVALID_REQUEST" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "404": { "description": "NOT_FOUND" },
-          "409": { "description": "VERSION_CONFLICT" }
+          "200": {
+            "description": "item（新版本）"
+          },
+          "400": {
+            "description": "INVALID_REQUEST"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "404": {
+            "description": "NOT_FOUND"
+          },
+          "409": {
+            "description": "VERSION_CONFLICT"
+          }
         }
       },
       "delete": {
         "operationId": "deleteObservation",
         "summary": "軟刪除正式紀錄（E2-F4）",
         "responses": {
-          "200": { "description": "已刪除" },
-          "403": { "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）" },
-          "404": { "description": "NOT_FOUND" }
+          "200": {
+            "description": "已刪除"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
+          },
+          "404": {
+            "description": "NOT_FOUND"
+          }
         }
       }
     },
@@ -309,14 +487,37 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["status", "request_id"],
+                  "required": [
+                    "status",
+                    "request_id"
+                  ],
                   "properties": {
-                    "status": { "type": "string", "const": "ok" },
-                    "request_id": { "type": "string", "format": "uuid" }
+                    "status": {
+                      "type": "string",
+                      "const": "ok"
+                    },
+                    "request_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
                   }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/trends": {
+      "get": {
+        "operationId": "getTrends",
+        "summary": "E3-F2：依測項分組的時間序列（僅 status=active observations，上游 §28.5）",
+        "responses": {
+          "200": {
+            "description": "{ series: TrendSeries[] }"
+          },
+          "403": {
+            "description": "PROJECT_ACCESS_DENIED（ErrorEnvelope）"
           }
         }
       }
@@ -326,17 +527,30 @@
     "schemas": {
       "ErrorEnvelope": {
         "type": "object",
-        "required": ["error", "request_id"],
+        "required": [
+          "error",
+          "request_id"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "properties": {
-              "code": { "type": "string" },
-              "message": { "type": "string" }
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
             }
           },
-          "request_id": { "type": "string", "format": "uuid" }
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       }
     }

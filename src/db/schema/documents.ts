@@ -1,5 +1,5 @@
 import { isNull } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { date, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { projects } from "./projects";
 
 /**
@@ -7,6 +7,8 @@ import { projects } from "./projects";
  * 本輪範圍止於「uploaded」——status 僅涵蓋 uploading／uploaded／upload_failed／
  * deleted 四種；processing/review_required/confirmed 屬 E2-F2/E2-F3，屆時擴充。
  * mimeType／sizeBytes／storageKey 於 complete 成功前為 null（上傳中無最終物件）。
+ * reportDate（E3-F2，A45）：檢驗／報告日期，與 createdAt（上傳時間）語意分離，
+ * 使用者選填；為 null 時趨勢圖 fallback 為 createdAt 並標記 dateEstimated。
  */
 export const documents = pgTable(
   "documents",
@@ -21,6 +23,7 @@ export const documents = pgTable(
     sizeBytes: integer("size_bytes"),
     storageKey: text("storage_key"),
     status: text("status").notNull().default("uploading"),
+    reportDate: date("report_date"),
     version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

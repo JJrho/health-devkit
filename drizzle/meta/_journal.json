@@ -57,6 +57,13 @@
       "when": 1784373020672,
       "tag": "0007_large_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784375990957,
+      "tag": "0008_lethal_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

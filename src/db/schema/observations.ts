@@ -8,7 +8,9 @@ import { testDefinitions } from "./test-definitions";
  * E2-F4 正式檢驗紀錄表（SDD §4.6；上游 §17：由確認建立／新版本／軟刪除）。
  * 掛在 project 層級（非 document 層級，A43）——同一項目的版本鏈可能橫跨不同文件。
  * numericValue 為已換算 canonical 單位後的數值（憲法 §4「健康數值須用 numeric」，
- * 本輪首次真正落地）；rawValue／rawUnit 原樣保留（憲法 §4「原值永遠保留」）。
+ * 本輪首次真正落地）；rawValue／rawUnit／rawReferenceRange 原樣保留（憲法 §4
+ * 「原值永遠保留」，rawReferenceRange 為 E3-F2／A46 補上，標準化時從
+ * extracted_items 原樣複製，不重新計算或正規化格式）。
  * 編輯採「整列新增＋前版 superseded」的完整版本鏈（A42），非原地覆寫。
  */
 export const observations = pgTable(
@@ -31,6 +33,7 @@ export const observations = pgTable(
     unit: text("unit").notNull(),
     rawValue: text("raw_value").notNull(),
     rawUnit: text("raw_unit"),
+    rawReferenceRange: text("raw_reference_range"),
     pageNumber: integer("page_number").notNull(),
     coordinates: jsonb("coordinates").notNull(),
     status: text("status").notNull().default("active"),

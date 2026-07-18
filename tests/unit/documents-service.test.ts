@@ -12,6 +12,7 @@ import {
   deleteDocument,
   getPreviewUrl,
   listDocuments,
+  updateDocument,
   uploadPart,
 } from "@/modules/documents";
 import { isEmailVerified } from "@/lib/require-verified-email";
@@ -339,5 +340,61 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     const output = warnSpy.mock.calls.map((call) => String(call[0])).join("\n");
     expect(output).not.toContain(secretFilename);
     warnSpy.mockRestore();
+  });
+
+  it("AC-12（E3-F2／A47）：任何未刪除文件狀態皆可編輯 reportDate，不比照 confirmed 鎖定規則", async () => {
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "日期編輯測試專案");
+    const session = await createUploadSession(ownerId, project.id, {
+      idempotencyKey: randomUUID(),
+      filename: "date.pdf",
+    });
+    if (!session.ok) throw new Error("setup failed");
+    await getDb()
+      .update(documents)
+      .set({ status: "confirmed" })
+      .where(eq(documents.id, session.document.id));
+
+    const result = await updateDocument(ownerId, project.id, session.document.id, {
+      version: session.document.version,
+      reportDate: "2026-05-01",
+    });
+    expect(result.ok && result.document.reportDate).toBe("2026-05-01");
+    expect(result.ok && result.document.version).toBe(session.document.version + 1);
+
+    const cleared = await updateDocument(ownerId, project.id, session.document.id, {
+      version: result.ok ? result.document.version : -1,
+      reportDate: null,
+    });
+    expect(cleared.ok && cleared.document.reportDate).toBeNull();
+  });
+
+  it("AC-13：reportDate 編輯帶舊 version 回 VERSION_CONFLICT，四層鏈重用回 PROJECT_ACCESS_DENIED", async () => {
+    const ownerId = await seedUser();
+    const strangerId = await seedUser();
+    const project = await createProject(ownerId, "版本衝突測試專案");
+    const session = await createUploadSession(ownerId, project.id, {
+      idempotencyKey: randomUUID(),
+      filename: "conflict.pdf",
+    });
+    if (!session.ok) throw new Error("setup failed");
+
+    await updateDocument(ownerId, project.id, session.document.id, {
+      version: session.document.version,
+      reportDate: "2026-01-01",
+    });
+    expect(
+      await updateDocument(ownerId, project.id, session.document.id, {
+        version: session.document.version,
+        reportDate: "2026-02-01",
+      }),
+    ).toEqual({ ok: false, code: "VERSION_CONFLICT" });
+
+    expect(
+      await updateDocument(strangerId, project.id, session.document.id, {
+        version: session.document.version,
+        reportDate: "2026-03-01",
+      }),
+    ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
   });
 });
