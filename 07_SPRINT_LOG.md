@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 10 開工＋部署中（2026-07-18）——**E2-F4：標準化與正式紀錄模組**。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署為止，不逐步停下確認。
+> 目前狀態：Sprint 10 ✅ 已 commit（`cde2e5e`）＋push＋正式站部署驗證通過（2026-07-18）——**E2-F4：標準化與正式紀錄模組**，E2-F4 正式結案，E2 Epic 全數完成（4/4）。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署為止，未逐步停下確認。
 
-## Sprint 10 — E2-F4：標準化與正式紀錄模組 ✅ 已通過 DOR，實作＋測試＋瀏覽器驗證完成，準備 commit＋push＋部署
+## Sprint 10 — E2-F4：標準化與正式紀錄模組 ✅ 已 commit＋push＋正式站部署驗證通過
 
 - 期間：2026-07-18（單日完成）
 - DOR：✅ 通過（sprints/sprint-10-dor.md；A40–A44 隨 PO「開啟該 DOR 時即部署」授權一併追認）
@@ -36,7 +36,10 @@
 - [x] 正常／邊緣／錯誤測試通過：Vitest 全專案 95 test／15 檔全綠（+11 新測試）；`pnpm build` 乾淨過；typecheck／lint 無新增錯誤
 - [x] 肉眼驗收：合成資料走完整真實管線＋瀏覽器互動驗證（標準化結果正確渲染＋鎖定狀態正確），非僅單元測試
 - [x] 修正皆反映於規格與文件：本節＋SDD §15／SYNC／ROADMAP 已更新；OpenAPI 已補 observations GET／PATCH／DELETE 端點
-- [ ] commit／push／正式站部署驗證：進行中
+- [x] commit（`cde2e5e`）＋push＋正式站部署驗證通過
+
+### 正式站部署驗證（2026-07-18）
+web／worker 兩 service 皆確認部署於 commit `cde2e5e`、狀態 `RUNNING`；`/api/health` 200；新路由 `/api/projects/{id}/observations`（無 session）回 401（非 404，確認已上線，KB-025 教訓延續：不只看 RUNNING／200 就結案）。**真實功能端到端驗證**：對 https://health-devkit.zeabur.app 用合成 PDF（WBC 一列）走完整真實管線——上傳→正式站真實 Worker 解析→PATCH 接受→確認（觸發 standardize-document）→正式站真實 Worker 標準化→`GET .../observations` 正確回傳 WBC／6.2／10^3/uL。驗證完成後清除測試帳號、專案、文件、Storage 物件；暫存腳本已刪除，未留存於 repo。
 
 ## Sprint 9 — E2-F3：人工確認與入庫模組 ✅ 已 commit＋push＋正式站部署驗證通過
 

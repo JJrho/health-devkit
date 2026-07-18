@@ -140,9 +140,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E2-F3 人工確認與入庫模組完成（2026-07-17，Sprint 9，Feature 7/20）**：讓使用者對 `extracted_items` 候選列新增、編輯、接受、拒絕，並透過確認 transaction 把文件鎖定為 `confirmed`（上游 §18.1）。開工前撰寫 DOR 時發現本專案「上游規格」章節引用長期查無實據——原始完整規格檔案從未 commit 過，已由 PO 提供並補進 `archive/upstream_spec/`（詳見 KB-027），DOR 因此得以依驗證過的原文重寫。新增 `extracted_item_edits` 異動歷史表（A36，落實憲法 §4「原值永久保留」）；E2-F3／E2-F4 邊界依上游 §17 逐字確認（E2-F3 只管候選列生命週期，別名／單位／numeric 標準化留給 E2-F4）。實作中修正 DOR 未言明的一致性缺口：confirmed 後的候選列需鎖定，PATCH／DELETE 一律擋下。合成資料端到端真實管線＋瀏覽器互動驗證（編輯→接受→確認→UI 即時鎖定為唯讀）皆通過。全專案 84 個測試（+9）／typecheck／lint／`pnpm build` 全綠。已 commit（`b9f878d`）＋push＋正式站部署驗證通過；PO 就 KB-021（惡意檔案掃描）拍板維持原計畫留到 E6-F2。
 
-**E2-F4 標準化與正式紀錄模組實作完成（2026-07-18，Sprint 10，Feature 8/20）**：把 E2-F3 確認完成的候選列，透過別名精確比對＋單位白名單自動標準化為正式數值紀錄（`observations`），由 Worker 於 `confirmDocument` 成功後非同步觸發（`standardize-document` job）。新增 4 張表：`test_definitions`／`test_aliases`（僅精確字串比對，A40，避免模糊比對誤連不同檢驗項目）／`test_definition_units`（單位白名單＋`factorToCanonical`）／`observations`（`numeric` 型別，版本鏈採「新增列＋舊列 superseded」模式，A42，區別於 E2-F3 純附加異動歷史表模式）。種子資料刻意保守（A41）：僅 4 個已知項目各 1 筆精確別名＋恆等換算，不發明真實醫療單位換算係數。`observations` 掛在專案層級（A43，依上游 API 路徑確認），支援版本鏈橫跨多份文件。全專案 95 個測試（+11）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器驗證（標準化結果正確渲染於「已入庫的正式紀錄」區塊＋候選列沿用鎖定唯讀行為）皆通過。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署，不逐步停下確認。
+**E2-F4 標準化與正式紀錄模組完成，E2-F4 正式結案、E2 Epic 全數完成（2026-07-18，Sprint 10，Feature 8/20）**：把 E2-F3 確認完成的候選列，透過別名精確比對＋單位白名單自動標準化為正式數值紀錄（`observations`），由 Worker 於 `confirmDocument` 成功後非同步觸發（`standardize-document` job）。新增 4 張表：`test_definitions`／`test_aliases`（僅精確字串比對，A40，避免模糊比對誤連不同檢驗項目）／`test_definition_units`（單位白名單＋`factorToCanonical`）／`observations`（`numeric` 型別，版本鏈採「新增列＋舊列 superseded」模式，A42，區別於 E2-F3 純附加異動歷史表模式）。種子資料刻意保守（A41）：僅 4 個已知項目各 1 筆精確別名＋恆等換算，不發明真實醫療單位換算係數。`observations` 掛在專案層級（A43，依上游 API 路徑確認），支援版本鏈橫跨多份文件。全專案 95 個測試（+11）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器驗證（標準化結果正確渲染於「已入庫的正式紀錄」區塊＋候選列沿用鎖定唯讀行為）皆通過。PO 指示「開啟該 DOR 時即部署」，本輪 DOR 通過後直接做到部署，未逐步停下確認。已 commit（`cde2e5e`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，新路由 404→401 確認上線，對正式站真實合成資料端到端功能驗證：上傳→真實 Worker 解析→接受→確認→真實 Worker 標準化→`observations` API 正確回傳皆成功）。
 
-下一步：Sprint 10 commit／push／正式站部署驗證；完成後開 Sprint 11 DOR；或先處理 KB-018／KB-020 已知限制。
+下一步：開 Sprint 11 DOR（E3 健康洞察呈現層）；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 
