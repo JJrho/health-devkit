@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 11 實作＋測試＋瀏覽器驗證完成（2026-07-18）——**E3-F2：趨勢圖與等價資料表**，尚待 PO 確認 commit／push／部署時機。
+> 目前狀態：Sprint 11 ✅ 已 commit（`01ba99b`）＋push＋正式站部署驗證通過（2026-07-18）——**E3-F2：趨勢圖與等價資料表**。部署驗證過程發現並記錄新知識點 KB-028（worker 部署交接期競態）。
 
-## Sprint 11 — E3-F2：趨勢圖與等價資料表 ✅ 實作＋測試＋瀏覽器驗證完成，待 PO 確認部署
+## Sprint 11 — E3-F2：趨勢圖與等價資料表 ✅ 已 commit＋push＋正式站部署驗證通過
 
 - 期間：2026-07-18（單日完成）
 - DOR：✅ 通過（sprints/sprint-11-dor.md；A45–A49 由 PO 追認）
@@ -36,7 +36,10 @@
 - [x] 正常／邊緣／錯誤測試通過：Vitest 全專案 105 test／16 檔全綠（+10 新測試）；`pnpm build` 乾淨過；typecheck／lint 無新增錯誤
 - [x] 肉眼驗收：合成資料走完整真實管線＋瀏覽器互動驗證（折線圖＋等價資料表＋日期編輯＋drill-down），非僅單元測試
 - [x] 修正皆反映於規格與文件：本節＋SDD §15／SYNC／ROADMAP 已更新；OpenAPI 已補 trends GET／documents PATCH 端點
-- [ ] commit／push／正式站部署驗證：待 PO 確認時機
+- [x] commit（`01ba99b`）＋push＋正式站部署驗證通過
+
+### 正式站部署驗證（2026-07-18）
+web／worker 兩 service 皆確認部署於 commit `01ba99b`、狀態 `RUNNING`；`/api/health` 200；新路由 `/api/projects/{id}/trends`（無 session）回 401（非 404，確認已上線）。**真實功能端到端驗證**：對 https://health-devkit.zeabur.app 用合成 PDF 走完整真實管線——上傳→正式站真實 Worker 解析→接受→確認→正式站真實 Worker 標準化→PATCH 設定檢驗日期→`GET .../trends`。**第一次驗證發現 `referenceRange` 回 `null`**（`extracted_items.rawReferenceRange` 明明正確存有值），程式碼與 schema 皆確認無誤；相隔約 3 分鐘重跑同一驗證即完全正確。判定為 worker 部署交接期競態——`RUNNING` 顯示的那一刻，舊版程式碼容器可能仍短暫存活並搶到佇列工作，新欄位為 nullable 故舊程式碼靜默留空、不報錯（**新知識點，已登記 KB-028**）。確認為交接期暫時現象、非程式錯誤後，驗證結果視為通過。驗證完成後清除兩輪測試帳號、專案、文件、Storage 物件；暫存腳本已刪除，未留存於 repo。
 
 ### 已知限制（誠實記錄，非誇大宣稱）
 - **E3 尚未全數完成**：本輪僅完成 E3-F2（趨勢圖），E3-F1（健康戰情 Dashboard 六區塊）依既定順序排在後面，因其六區塊高度依賴尚未實作的 E4／E5 資料（行動計畫、專業協助等）。
