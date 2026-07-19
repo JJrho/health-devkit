@@ -1,6 +1,50 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 16 已 commit／push／正式站部署驗證通過（2026-07-19）——**E4-F3：SSE 串流問答引擎（PoC 2/2）結案，E4 Epic 全數完成**。UI／`regenerate`／頻率限制（C17）／安全提示打磨全數完成，已在正式站對真實瀏覽器＋真實 OpenAI API 端到端操作驗證：建立對話→提問→串流顯示→引用清單→重新產生皆正確運作。
+> 目前狀態：Sprint 17 實作＋測試完成，尚待 commit／push／正式站部署驗證（2026-07-19）——**E5-F1：行動計畫與安全規則引擎（Part 1/2）**。三張新表（intervention_plans／intervention_actions／tracking_metrics）＋服務層＋API，安全審查採結構化欄位完整性檢查（A87），不含 UI，留待 Part 2/2（Sprint 18）。
+
+## Sprint 17 — E5-F1：行動計畫與安全規則引擎（Part 1/2）✅ 實作＋測試完成，尚待 commit／push／部署
+
+- 期間：2026-07-19（單日完成）
+- DOR：✅ 通過（sprints/sprint-17-dor.md；A84–A93 由 PO 追認）
+- 目標：E5 健康行動閉環第一個 Feature——建立可執行、可停止的行動計畫，核心是啟用前的安全把關（05_BACKLOG 風險標記「醫療安全核心」），非計畫內容豐富度。拆為 Part 1/2（本輪：資料模型＋安全審查＋API，不含 UI）＋ Part 2/2（下一輪：UI＋完整驗收），比照 E2-F2／E4-F3 PoC 拆分先例。
+
+### 根因／設計要點
+- **安全審查（`activatePlan()`）採結構化欄位完整性檢查，非語意判讀**（A87，本輪核心設計決策）：檢查計畫自身欄位（`baseline`／`riskNote`／`stopCondition`／`referralCondition`／`reviewDate`）皆非空，且 `leading`／`outcome`／`safety` 三分類指標各至少一筆；**不**對使用者的 `health_profiles`（自由 jsonb）內容做「背景資訊是否充分」的語意判斷。延續 A62／A73／A74 一貫原則——規則式判讀健康背景比誠實要求使用者自己寫清楚安全資訊更危險，會給使用者虛假的安全感。
+- **狀態機落地上游 §18.3 子集**（A85）：`draft`／`needs_info`／`safety_review`／`active`／`paused`／`stopped`／`review_due`／`archived`。`safety_review` 僅型別保留，本輪 `activatePlan()` 為同步結構檢查，不產生該狀態實際資料（通過直接進 `active`，不通過回 `needs_info`）。
+- **已啟用計畫本輪不開放編輯**（A89）：`draft`／`needs_info` 才能 `updatePlan()`；`active`／`paused` 僅開放 `pause`／`resume`／`stop` 狀態轉換，`previousVersionId` 版本鏈欄位僅預留，邏輯留待 Part 2/2。
+- **`stopPlan(reason)` 僅提供狀態轉換原語**（A90）：`reason` 為 `user_choice`／`adverse_event`，不含症狀事件自動觸發鏈——不良反應偵測與自動暫停屬 E5-F2「日常回報與症狀事件模組」範圍。
+- **`intervention_actions.category` 自由文字、`tracking_metrics.category` 固定 enum**（A91／A92）：前者純描述性，比照 `health_profiles` 不過度正規化；後者是 A87 安全審查的判斷依據，需要程式邏輯可靠識別三分類是否齊全。
+- **錯誤碼採上游 §24 逐字**：`PLAN_SAFETY_INFO_REQUIRED`（尚未完成安全資訊，不能啟用計畫）——啟用失敗時附帶缺漏欄位清單。
+
+### 驗收結果（AC-1～AC-10）
+| AC | 結果 |
+|---|---|
+| AC-1／AC-2（建立草稿） | ✅ 整合測試：安全欄位可留空，`status` 預設 `draft` |
+| AC-3（安全檢查通過） | ✅ 整合測試：欄位與三分類指標齊全 → `activate` 成功轉 `active` |
+| AC-4（安全檢查不通過：欄位缺漏） | ✅ 整合測試：缺 `stopCondition` → `PLAN_SAFETY_INFO_REQUIRED`＋缺漏清單，`status→needs_info` |
+| AC-5（安全檢查不通過：指標缺漏） | ✅ 整合測試：缺 `safety` 分類指標 → 缺漏清單含 `metric:safety` |
+| AC-6（暫停／恢復） | ✅ 整合測試：`active↔paused` 正確轉換；`draft` 呼叫 `pause` 拒絕（`INVALID_REQUEST`） |
+| AC-7（停止） | ✅ 整合測試：任一非終態可停止，`stopReason` 正確記錄；終態（`stopped`）不可再轉換 |
+| AC-8（子資源歸屬與四層鏈） | ✅ 整合測試：跨帳號操作 action／metric 一律 `PROJECT_ACCESS_DENIED`（修正過程見下） |
+| AC-9（軟刪除／編輯限制） | ✅ 整合測試：刪除後不出現於列表、直接查詢 `NOT_FOUND`；`active` 計畫編輯拒絕 |
+| AC-10（日誌 P0） | ✅ 整合測試：建立／啟用計畫過程不含 `baseline`／`riskNote` 等健康敘述內容 |
+
+### 實作中發現並修正的缺陷
+`findOwnedPlan()` 初版把「沒有權限」與「資源不存在」collapse 成同一個 `null` 回傳值，導致 AC-8 的跨帳號測試意外收到 `NOT_FOUND` 而非 `PROJECT_ACCESS_DENIED`（測試當場抓到）。比照 `observations` 模組既有的 `findOwnedObservation` 兩段式判斷慣例修正：先以 `findOwnedProject` 判斷第 1／2／4 層（非擁有者一律 `PROJECT_ACCESS_DENIED`），再判斷 plan 是否存在於該 project（否則 `NOT_FOUND`），回傳型別改為 `{ok:true, plan} | {ok:false, code}` 明確區分兩種情境。修正後全數服務層函式呼叫點同步更新。
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：整合測試 10 項全綠
+- [ ] 肉眼驗收：本輪無 UI（A88），留待 Part 2/2
+- [x] 沒有新增明顯 UI/UX 問題：不適用（無 UI）
+- [x] 修正皆反映於規格與文件：本節已更新；SDD／SYNC／ROADMAP 一併更新
+- [ ] commit／push／正式站部署驗證：**尚待 PO 確認部署時機**
+
+### 已知限制（誠實記錄，非誇大宣稱）
+- **安全審查為結構化欄位完整性檢查，非對健康背景內容的語意判讀**：`activatePlan()` 只確認計畫自身欄位與指標分類齊全，不對 `health_profiles` 內容做正確性或充分性判斷（A87）。
+- **已啟用計畫本輪不可編輯，版本鏈邏輯未實作**：`previousVersionId` 欄位僅預留，「調整建立新版本」（上游 §19）留待 Part 2/2（A89）。
+- **無 UI**：本輪純後端＋API，透過整合測試驗證（A88），使用者尚無法透過網頁操作行動計畫。
+- **`stopPlan()` 無不良反應自動觸發鏈**：`reason` 欄位僅為原語，症狀事件偵測與自動暫停屬 E5-F2 範圍（A90）。
+- **`review_due` 之後無檢討結果邏輯**：`adjusted`／`completed`／`ineffective`／`escalated` 分類屬 E5-F3「定期檢討與無改善分類模組」範圍，本輪 `review_due` 僅為狀態機占位。
 
 ## Sprint 16 — E4-F3：SSE 串流問答引擎（PoC 2/2）✅ 實作＋測試＋瀏覽器驗證＋正式站部署驗證全數完成
 

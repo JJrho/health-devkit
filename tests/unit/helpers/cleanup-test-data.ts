@@ -6,11 +6,14 @@ import {
   extractedItemEdits,
   extractedItems,
   healthProfiles,
+  interventionActions,
+  interventionPlans,
   messageCitations,
   messages,
   observations,
   projects,
   sessions,
+  trackingMetrics,
   users,
 } from "@/db/schema";
 
@@ -78,6 +81,18 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
     }
     await db.delete(documents).where(inArray(documents.projectId, projectIds));
     await db.delete(healthProfiles).where(inArray(healthProfiles.projectId, projectIds));
+
+    // E5-F1：intervention_actions／tracking_metrics 有 FK 指向 intervention_plans，須先刪
+    const plans = await db
+      .select({ id: interventionPlans.id })
+      .from(interventionPlans)
+      .where(inArray(interventionPlans.projectId, projectIds));
+    const planIds = plans.map((p) => p.id);
+    if (planIds.length > 0) {
+      await db.delete(interventionActions).where(inArray(interventionActions.planId, planIds));
+      await db.delete(trackingMetrics).where(inArray(trackingMetrics.planId, planIds));
+    }
+    await db.delete(interventionPlans).where(inArray(interventionPlans.projectId, projectIds));
   }
   await db.delete(projects).where(inArray(projects.ownerId, userIds));
   await db.delete(sessions).where(inArray(sessions.userId, userIds));

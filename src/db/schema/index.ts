@@ -15,3 +15,6 @@ export { evidenceClaims } from "./evidence-claims";
 export { conversations } from "./conversations";
 export { messages } from "./messages";
 export { messageCitations } from "./message-citations";
+export { interventionPlans } from "./intervention-plans";
+export { interventionActions } from "./intervention-actions";
+export { trackingMetrics } from "./tracking-metrics";

@@ -208,5 +208,14 @@
 - 影響範圍：任何專案只要用「`.env.example` 裡放註解掉的佔位行」這種常見慣例，PO 或協作者依樣填值時都可能複製到這個陷阱；`dotenv` 對格式錯誤的行為是靜默忽略，不是報錯，容易被誤判為「金鑰無效」或「服務本身有問題」而繞了遠路才找到真因。
 - 未來避免：往後只要遇到「明明已經設定卻讀不到環境變數」的狀況，第一步就該用 `grep -c "^KEY_NAME"` 與 `grep -c "KEY_NAME"` 兩個計數是否一致來快速排除「行首還留著 `#`」這個最常見成因，再往其他方向（.env 路徑不對、程式沒呼叫 dotenv/config、變數名稱打錯）排查——這與 KB-015（PowerShell 讀 `.env` 需注意編碼）同屬「`.env` 讀取表面正常、實際靜默失效」的同一類教訓，皆全程未印出機密內容即完成診斷。
 
+## KB-032 新增四層鏈模組時，「找不到資源」的存取判斷務必分兩段，不可 collapse 成單一 null
+
+- 類型：實作缺陷／設計慣例提醒（Sprint 17，2026-07-19，測試階段當場抓到）
+- 內容：E5-F1 首版 `findOwnedPlan()` 為求精簡，把「呼叫者不擁有此專案」與「plan 在此專案下不存在」兩種情境都寫成同一個 `return null`，呼叫端因此只能統一回 `NOT_FOUND`，跨帳號存取測試（AC-8）因此收到 `{ code: "NOT_FOUND" }` 而非預期的 `{ code: "PROJECT_ACCESS_DENIED" }`，整合測試當場失敗。
+- 根因：`observations` 模組既有的 `findOwnedObservation()` 其實早就是「先呼叫 `findOwnedProject()` 判斷第 1／2／4 層（非擁有者回 `PROJECT_ACCESS_DENIED`），再查詢子資源是否存在於該 project（否則回 `NOT_FOUND`）」的兩段式設計，本輪撰寫新模組時沒有把這個既有慣例讀仔細，直接用了 `conversations` 模組 `findOwnedConversation()` 回傳單一 `null` 的簡化寫法（該處之所以能用單一 null，是因為呼叫端額外自己先呼叫過一次 `findOwnedProject()` 判斷 `PROJECT_ACCESS_DENIED`，兩處合看才等價於兩段式；本輪服務層沒有比照那個額外呼叫，才漏了這一段）。
+- 已完成處置：把 `findOwnedPlan()` 回傳型別改為 `{ok:true, plan} | {ok:false, code:"PROJECT_ACCESS_DENIED"} | {ok:false, code:"NOT_FOUND"}`，比照 `findOwnedObservation()` 的兩段式判斷，所有呼叫點同步更新為 `const found = await findOwnedPlan(...); if (!found.ok) return found;`。修正後 AC-8 測試通過。
+- 影響範圍：任何未來新增的「四層鏈第 3 層子資源查找」helper（如 E5-F2 的 check-ins／symptom_events、E5-F3 的 plan_reviews）都適用同一原則——複製既有 helper 當範本時，優先參照 `findOwnedObservation()` 的兩段式寫法，而非 `findOwnedConversation()` 的單一 null 寫法（後者只在呼叫端有額外把關時才安全，容易被誤以為是通用範本）。
+- 未來避免：新增子資源存取 helper 時，測試優先寫「跨帳號存取應得到 `PROJECT_ACCESS_DENIED`」與「同帳號但資源不存在應得到 `NOT_FOUND`」兩條分開的斷言（而非只驗證 `ok:false`），這類錯誤在型別層面不會被抓到（兩者都是合法的 `{ok:false}` 聯集成員），只有跑實際案例才會現形——本次正是測試先寫好兩種情境的明確斷言，才在實作階段就攔下這個缺陷。
+
 ## 新紀錄模板
 （依方法論 13.2 節）
