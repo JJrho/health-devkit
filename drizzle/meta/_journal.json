@@ -71,6 +71,13 @@
       "when": 1784437662336,
       "tag": "0009_windy_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784440436092,
+      "tag": "0010_perfect_mister_fear",
+      "breakpoints": true
     }
   ]
 }

@@ -148,7 +148,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E4-F1 知識來源與檢索基座完成（2026-07-19，Sprint 13，Feature 11/20）**：建立 `knowledge_sources`／`knowledge_chunks` 資料模型與純服務層檢索函式 `searchKnowledge()`／切分工具 `chunkText()`，供 E4-F2／E4-F3 未來直接使用；本輪無 API 路由或 UI（無消費者）。開工前確認「首批知識來源整備」外部依賴時，PO 提供合作醫師王健宇醫師已出版衛教書籍《為什麼你的病總是看不好？》（38 章節、706 頁）作為真實內容；同時提供的同批 OCR markdown 版本經查核後發現系統性辨識錯誤，已否決不用，改由 AI 逐頁視覺閱讀＋人工轉錄完成 2 個試點章節（11 頁）驗證 seed 管線，其餘留待後續迭代。真實內容 `status` 設為 `draft`（A55），確保未經最終校對的內容不會被檢索提早引用。實作檢索機制時發現原規劃的 Postgres 內建全文檢索（tsvector）對中文完全不斷詞，改用 `pg_trgm` trigram 索引＋`ILIKE` 子字串比對（A54 實作中修正，新知識點 KB-029）。全專案 119 個測試（+8）／typecheck／lint／`pnpm build` 全綠。已 commit（`a93fdbd`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，worker 日誌確認正常啟動；本輪無新增 API 路由，改直接查詢正式站共用資料庫確認 `knowledge_sources` 2 筆／`knowledge_chunks` 43 筆正確寫入且 `status=draft`，`searchKnowledge()` 對書中詞彙查詢正確回傳 0 筆，安全閘門在正式站環境同樣生效）。已知限制：僅 2/38 章節、真實內容為 draft 尚未經人工最終校對、檢索僅子字串比對非語意理解、無向量檢索。
 
-下一步：開 Sprint 14 DOR（依既定順序推進 E4-F2：主張與衝突模型）；或先處理 KB-018／KB-020 已知限制。
+**E4-F2 主張與衝突模型完成（2026-07-19，Sprint 14，Feature 12/20）**：新增 `evidence_claims` 表（上游 §13.2 十三項欄位逐字對應）＋純服務層函式 `getClaimsForTopic()`，把知識來源切分內容轉換為結構化、可比較的醫學主張，並標記主張間的衝突狀態（上游 §13.3 七分類：`consistent`／`different_conditions`／`mixed_evidence`／`insufficient_evidence`／`not_applicable`／`source_outdated`／`source_withdrawn`），供 E4-F3 未來查詢與呈現；本輪無 API 路由或 UI。核心設計決策：`conflictStatus` 為人工標記、非系統自動判定（A62）——醫學衝突判斷需要語意理解，規則式演算法勉強分類反而比誠實地人工標記風險更高。**實作前重新評估推翻 DOR 草案的一項計畫**：原規劃另立 seed script 示範衝突情境（仿上游 §29 咖啡與骨質疏鬆範例），撰寫前發現此類示範必然要編造虛構研究內容，若以 `status=active` 寫入正式站共用資料庫，會被安全閘門判定為合格證據，未來 E4-F3 有誤引用風險；改為衝突情境示範資料只在測試檔內建立即刪除，不落地為 seed script（新知識點 KB-030）。真實王醫師書籍內容本輪未建立對應主張（A63）——目前僅 2 章節、內容為病患衛教敘事非研究型結構化資料，勉強詮釋套入 §13.2 欄位有扭曲原意風險。全專案 125 個測試（+6）／typecheck／lint／`pnpm build` 全綠。**尚待**：PO 確認 commit／push／正式站部署時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 14；之後依既定順序開 Sprint 15 DOR（E4-F3：SSE 串流問答引擎，PoC）；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 

@@ -11,3 +11,4 @@ export { testDefinitionUnits } from "./test-definition-units";
 export { observations } from "./observations";
 export { knowledgeSources } from "./knowledge-sources";
 export { knowledgeChunks } from "./knowledge-chunks";
+export { evidenceClaims } from "./evidence-claims";
