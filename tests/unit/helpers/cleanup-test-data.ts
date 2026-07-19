@@ -1,10 +1,13 @@
 import { inArray, like } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
+  conversations,
   documents,
   extractedItemEdits,
   extractedItems,
   healthProfiles,
+  messageCitations,
+  messages,
   observations,
   projects,
   sessions,
@@ -33,6 +36,26 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
   const projectIds = ownedProjects.map((project) => project.id);
 
   if (projectIds.length > 0) {
+    // E4-F3：message_citations 可能反向 FK 指向 observations，須在 observations 之前清掉
+    // （KB-019 FK 順序教訓延續；conversations 直接掛 projectId，不依賴 docIds）
+    const convos = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(inArray(conversations.projectId, projectIds));
+    const convoIds = convos.map((c) => c.id);
+    if (convoIds.length > 0) {
+      const msgs = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(inArray(messages.conversationId, convoIds));
+      const msgIds = msgs.map((m) => m.id);
+      if (msgIds.length > 0) {
+        await db.delete(messageCitations).where(inArray(messageCitations.messageId, msgIds));
+      }
+      await db.delete(messages).where(inArray(messages.conversationId, convoIds));
+      await db.delete(conversations).where(inArray(conversations.projectId, projectIds));
+    }
+
     const docs = await db
       .select({ id: documents.id })
       .from(documents)

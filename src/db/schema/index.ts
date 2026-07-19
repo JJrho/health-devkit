@@ -12,3 +12,6 @@ export { observations } from "./observations";
 export { knowledgeSources } from "./knowledge-sources";
 export { knowledgeChunks } from "./knowledge-chunks";
 export { evidenceClaims } from "./evidence-claims";
+export { conversations } from "./conversations";
+export { messages } from "./messages";
+export { messageCitations } from "./message-citations";

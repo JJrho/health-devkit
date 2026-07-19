@@ -150,7 +150,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E4-F2 主張與衝突模型完成（2026-07-19，Sprint 14，Feature 12/20）**：新增 `evidence_claims` 表（上游 §13.2 十三項欄位逐字對應）＋純服務層函式 `getClaimsForTopic()`，把知識來源切分內容轉換為結構化、可比較的醫學主張，並標記主張間的衝突狀態（上游 §13.3 七分類：`consistent`／`different_conditions`／`mixed_evidence`／`insufficient_evidence`／`not_applicable`／`source_outdated`／`source_withdrawn`），供 E4-F3 未來查詢與呈現；本輪無 API 路由或 UI。核心設計決策：`conflictStatus` 為人工標記、非系統自動判定（A62）——醫學衝突判斷需要語意理解，規則式演算法勉強分類反而比誠實地人工標記風險更高。**實作前重新評估推翻 DOR 草案的一項計畫**：原規劃另立 seed script 示範衝突情境（仿上游 §29 咖啡與骨質疏鬆範例），撰寫前發現此類示範必然要編造虛構研究內容，若以 `status=active` 寫入正式站共用資料庫，會被安全閘門判定為合格證據，未來 E4-F3 有誤引用風險；改為衝突情境示範資料只在測試檔內建立即刪除，不落地為 seed script（新知識點 KB-030）。真實王醫師書籍內容本輪未建立對應主張（A63）——目前僅 2 章節、內容為病患衛教敘事非研究型結構化資料，勉強詮釋套入 §13.2 欄位有扭曲原意風險。全專案 125 個測試（+6）／typecheck／lint／`pnpm build` 全綠。已 commit（`40d9eec`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，worker 日誌確認正常啟動；本輪無新增 API 路由，改用臨時驗證腳本直接對正式站共用資料庫執行端到端功能驗證：`getClaimsForTopic()` 正確只回傳 `active` 來源主張、`draft` 來源正確排除，驗證用臨時資料已清除）。
 
-下一步：依既定順序開 Sprint 15 DOR（E4-F3：SSE 串流問答引擎，PoC，高風險：引用驗證端到端）；或先處理 KB-018／KB-020 已知限制。
+**E4-F3 串流問答引擎 PoC 1/2 完成（2026-07-19，Sprint 15，Feature 13/20）**：新增 `conversations`／`messages`／`message_citations` 三表＋`OpenAiLlmAdapter`（Sprint 1 已定義的 `LlmAdapter` 介面首次落地實作）＋對話服務層，串接 E4-F1／E4-F2／E2-F4 三塊既有基礎，證明「引用驗證端到端」（05_BACKLOG 唯一 🔴 風險項）技術可行：LLM 被要求僅能用 `[OBS:uuid]`／`[SRC:uuid]` 標籤引用資料，驗證時確認 ID 未虛構＋資料合法存在（結構性檢查，非語意一致性核對，A74）。**已用真實 OpenAI API 呼叫驗證核心 PoC 目標成功**（AC-2／AC-10）。本輪拆為 PoC 1/2＋PoC 2/2（A69，比照 E2-F2 先例），不含 UI／`regenerate`／頻率限制（C17）／進階安全過濾（僅 prompt 約束＋關鍵字掃描，非分類模型，A73／A76，延續 E4-F2 A62 一貫原則）。開工前 LLM API key 尚未備妥（A68），PO 申請後寫入 `.env` 時因保留 `.env.example` 的註解符號 `#` 導致 dotenv 讀不到值，已用腳本移除該符號修正（全程未印出金鑰內容）。全專案 135 個測試（+10，含 2 項真實 API 呼叫）／typecheck／lint／`pnpm build` 全綠。**尚待**：PO 確認 commit／push／正式站部署時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 15；之後依既定順序開 Sprint 16 DOR（E4-F3 PoC 2/2：UI／`regenerate`／頻率限制／進階安全打磨）；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 

@@ -1,6 +1,49 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 14 ✅ 已 commit（`40d9eec`）＋push＋正式站部署驗證通過（2026-07-19）——**E4-F2：主張與衝突模型（七狀態）**。實作前重新評估發現：若把示範用的虛構「衝突」情境資料以 `status=active` 寫入正式站共用資料庫，未來 E4-F3 可能誤把虛構研究當真實證據引用，已改為測試檔內建立即刪除，不落地為 seed script（KB-030）。Sprint 14 收尾後，PO 另提供 4 個章節真實內容，已轉錄並 seed（詳見下方補充記錄），E4-F1 真實內容涵蓋度由 2/38 章節提升為 6/38 章節。
+> 目前狀態：Sprint 15 實作＋測試完成，尚待 commit／push／正式站部署驗證（2026-07-19）——**E4-F3：SSE 串流問答引擎（PoC 1/2）**。核心 PoC 目標（引用驗證端到端，05_BACKLOG 唯一 🔴 風險項）已用真實 OpenAI API 呼叫驗證成功：LLM 確實遵循我方要求的 `[OBS:uuid]`／`[SRC:uuid]` 引用標籤格式，虛構或跨專案的引用皆正確被結構性驗證剔除。
+
+## Sprint 15 — E4-F3：SSE 串流問答引擎（PoC 1/2）✅ 實作＋測試完成，尚待 PO 確認部署時機
+
+- 期間：2026-07-19（單日完成）
+- DOR：✅ 通過（sprints/sprint-15-dor.md；A68–A77 由 PO 追認）
+- 前置事件：開工前確認 LLM API key（技術選型已定案 OpenAI Responses API）尚未設定，PO 決定先申請、同時請 AI 擬好 DOR 假設（A68）。DOR 通過後 PO 確認「OpenAI Responses API 已申請完成」；實作階段發現 PO 寫入 `.env` 的該行仍保留原註解符號 `#`（`.env.example` 佔位格式），dotenv 因此讀不到值，已用腳本移除該行開頭的 `# `（全程未印出金鑰內容，僅確認布林值／長度／格式前綴）修正後金鑰正確載入。
+- 目標：串接 E4-F1（知識檢索）／E4-F2（主張與衝突）／E2-F4（正式紀錄）三塊既有基礎，讓使用者對健康資料提問、AI 以 SSE Streaming 回答，且證明「引用驗證端到端」技術可行（05_BACKLOG 唯一 🔴 風險項）
+
+### 根因／設計要點
+- **拆分為 PoC 1/2＋PoC 2/2**（A69）：05_BACKLOG 本身估 2 個 Sprint、標記 PoC，比照 E2-F2 先例，本輪聚焦最高風險項與核心管線，UI／`regenerate`／頻率限制（C17）／進階安全過濾留待 PoC 2/2（Sprint 16）。
+- **引用驗證為結構性檢查，非語意一致性核對**（A74）：LLM 被要求只能用我方提供的 `[OBS:uuid]`／`[SRC:uuid]` 標籤引用，驗證時確認該 ID 確實是本輪提供過的 context（未虛構）＋查資料庫確認資料存在、屬於本專案、來源 active、未刪除。**這正是本輪要證明的最高風險項，已用真實 API 呼叫驗證通過**（AC-2／AC-10）。
+- **安全把關依賴 prompt 約束＋關鍵字掃描，非獨立分類模型**（A73／A76）：延續 E4-F2 A62 一貫原則——勉強做一個看似可靠、實際不準確的過濾器比誠實地依賴有限手段更危險。檢索結果為空時直接 `blocked`＋`AI_INSUFFICIENT_DATA`，不呼叫 LLM（AC-6，已用 `ThrowingLlmAdapter` 證明真的不會呼叫）。
+- **`LlmAdapter` 介面早於本輪存在**：Sprint 1（Stage 0）已定義好 `streamCompletion()` 單一串流方法（憲法 §3 由型別層面排除非串流實作），本輪只需補上 OpenAI Responses API 實作與服務層編排，介面本身未變動。
+- **測試多數不需真實 API key**（依賴注入設計紅利）：`runAssistantMessage()` 以參數接受 `LlmAdapter`，8/10 個 AC 用 Fake adapter（立即回應／會拋錯／可取消的慢速串流）驗證狀態機、引用驗證、取消、四層權限鏈、日誌白名單，完全不需要真實 OpenAI 呼叫；僅 AC-2／AC-10 兩項用 `it.skipIf(!hasOpenAiKey)` 隔離真正的端到端驗證。
+
+### 驗收結果（AC-1～AC-10）
+| AC | 結果 |
+|---|---|
+| AC-1（狀態機） | ✅ 整合測試：`messages.status` 涵蓋上游 §17 八值 |
+| AC-2（有來源的健康問答，上游 §29；真實 LLM） | ✅ 整合測試（真實 OpenAI 呼叫）：`stream_completed`＋`citation_added` 事件皆正確觸發 |
+| AC-3（引用驗證：合法引用通過） | ✅ 整合測試：ID 存在且屬本專案／來源 active → 保留在最終內容並記入 `message_citations` |
+| AC-4（引用驗證：虛構引用剔除） | ✅ 單元測試：ID 未曾提供給模型 → 從內容中移除，不記入 citations |
+| AC-5（引用驗證：跨專案資料排除） | ✅ 整合測試：ID 確實存在且曾提供，但屬於另一專案 → 剔除 |
+| AC-6（資料不足） | ✅ 整合測試：專案無任何已確認資料 → 直接 `blocked`＋`AI_INSUFFICIENT_DATA`，未呼叫 LLM（以會拋錯的 Fake adapter 證明） |
+| AC-7（取消） | ✅ 整合測試：`streaming` 階段呼叫 `cancelMessage()` → `AbortSignal` 觸發，狀態轉 `cancelled` |
+| AC-8（四層權限鏈） | ✅ 整合測試：跨帳號一律 `PROJECT_ACCESS_DENIED` |
+| AC-9（日誌 P0） | ✅ 整合測試：訊息流程不含提問全文、AI 回答全文或完整 prompt |
+| AC-10（繁體中文，C18；真實 LLM） | ✅ 整合測試（真實 OpenAI 呼叫）：回答為繁體中文 |
+
+### 端到端驗證（真實 OpenAI API＋合成健康資料）
+用合成專案＋一筆真實走完整上傳／標準化管線的 WBC observation＋一筆合成 `status=active` 知識來源，對 `POST .../messages` 建立的訊息呼叫 `runAssistantMessage()` 搭配真正的 `OpenAiLlmAdapter`（`gpt-4o-mini`）：LLM 正確在回答中使用 `[OBS:uuid]`／`[SRC:uuid]` 標籤引用個人資料與知識來源，引用驗證正確識別並保留合法引用、記入 `message_citations`；回答語言為繁體中文。全專案 135 個測試（+10）／typecheck／lint／`pnpm build` 全綠。
+
+### DOD 核對
+- [x] 正常／邊緣／錯誤測試通過：全數含真實 API 呼叫在內全綠
+- [x] 肉眼驗收：N/A（本輪無 UI，A75）
+- [x] 修正皆反映於規格與文件：本節已更新；SDD／SYNC／ROADMAP 待收尾一併更新
+- [ ] commit／push／正式站部署驗證：**尚待 PO 確認部署時機**
+
+### 已知限制（誠實記錄，非誇大宣稱）
+- **僅 PoC 1/2**：無 UI（純後端＋API，本輪透過整合測試直接消費 SSE 邏輯驗證）、無 `regenerate`、無頻率限制（C17：每日 30 則問答）、無進階安全過濾（僅 prompt 約束＋關鍵字掃描警示，不自動攔截）。
+- **引用驗證為結構性檢查**：確認 ID 未虛構、資料存在且合法，**不驗證** LLM 是否曲解了原文語意（技術選型 §11.5「claim 與引用段落一致」的深度版本，需額外 NLI 模型或二次 LLM 呼叫，留待後續迭代）。
+- **檢索僅用既有 `searchKnowledge()`／未串接 `getClaimsForTopic()`**：問題文字到 `topicKey` 的自動對應需要額外分類邏輯，超出本輪範圍，衝突主張檢索留待後續迭代。
+- **`errorCode`／狀態機已落地但頻率限制、regenerate 版本鏈邏輯本輪不實作**，`messages.version` 欄位僅預留。
 
 ## 補充：E4-F1 知識庫真實內容擴充（2026-07-19，非獨立 Sprint，延續 A55 既定流程）
 

@@ -78,6 +78,13 @@
       "when": 1784440436092,
       "tag": "0010_perfect_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784450922735,
+      "tag": "0011_smart_mastermind",
+      "breakpoints": true
     }
   ]
 }
