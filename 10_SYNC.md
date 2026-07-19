@@ -1,13 +1,13 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～12 ✅（2026-07-12～07-19）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1／E2-F2／E2-F3／E2-F4／E3-F2／E3-F1 Feature 結案（10/20，E3 Epic 全數完成）**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 13（E4-F1：知識來源與檢索基座）實作＋測試完成，尚待 PO 確認 commit／push／部署時機**——首次使用真實授權內容（合作醫師王健宇醫師書籍節錄），過程否決一批品質不佳的舊 OCR 內容，並發現 Postgres 內建全文檢索對中文不斷詞（KB-029），改用 pg_trgm。**Sprint 12（E3-F1：健康戰情 Dashboard）已 commit（`e02871f`）＋push＋正式站部署驗證通過；依 KB-028 教訓等待緩衝期後驗證，未再遇到交接期競態**。**Sprint 11（E3-F2：趨勢圖與等價資料表）已 commit（`01ba99b`）＋push＋正式站部署驗證通過；部署驗證過程發現 worker 部署交接期存在數分鐘競態窗口，已登記 KB-028**。**Sprint 10（E2-F4：標準化與正式紀錄模組）已 commit（`cde2e5e`）＋push＋正式站部署驗證通過，PO 指示「開啟該 DOR 時即部署」，本輪未逐步停下確認**。**Sprint 9（E2-F3：人工確認與入庫模組）已 commit（`b9f878d`）＋push＋正式站部署驗證通過，PO 已就 KB-021 拍板維持原計畫留到 E6-F2**。⚠️ Sprint 8 部署驗證過程中發現正式站 worker 缺環境變數（KB-025）並發生**本專案第 4 次意外機密外洩事故**（KB-026）——已完成憑證輪替、規則已強化為「zeabur variable create／update／delete 一律不可直接查看輸出」。**KB-027：「上游規格」章節引用長期查無實據，已找到並補齊真正的完整規格（archive/upstream_spec/）**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
+開發包 v1.0.0 RATIFIED；三層結構已啟用（20 Feature／24 Sprint）；GitHub repo：JJrho/health-devkit（Private）。**Sprint 1～13 ✅（2026-07-12～07-19）＝E1-F1／E1-F2／E1-F4／E1-F5／E2-F1／E2-F2／E2-F3／E2-F4／E3-F2／E3-F1／E4-F1 Feature 結案（11/20）**：全數已 commit＋push＋正式站部署驗證通過（https://health-devkit.zeabur.app，Linode Tokyo 專屬伺服器**已升級 2C/4GB**；ID 見 CLAUDE.md）。**Sprint 13（E4-F1：知識來源與檢索基座）已 commit（`a93fdbd`）＋push＋正式站部署驗證通過**——首次使用真實授權內容（合作醫師王健宇醫師書籍節錄），過程否決一批品質不佳的舊 OCR 內容，並發現 Postgres 內建全文檢索對中文不斷詞（KB-029），改用 pg_trgm。**Sprint 12（E3-F1：健康戰情 Dashboard）已 commit（`e02871f`）＋push＋正式站部署驗證通過；依 KB-028 教訓等待緩衝期後驗證，未再遇到交接期競態**。**Sprint 11（E3-F2：趨勢圖與等價資料表）已 commit（`01ba99b`）＋push＋正式站部署驗證通過；部署驗證過程發現 worker 部署交接期存在數分鐘競態窗口，已登記 KB-028**。**Sprint 10（E2-F4：標準化與正式紀錄模組）已 commit（`cde2e5e`）＋push＋正式站部署驗證通過，PO 指示「開啟該 DOR 時即部署」，本輪未逐步停下確認**。**Sprint 9（E2-F3：人工確認與入庫模組）已 commit（`b9f878d`）＋push＋正式站部署驗證通過，PO 已就 KB-021 拍板維持原計畫留到 E6-F2**。⚠️ Sprint 8 部署驗證過程中發現正式站 worker 缺環境變數（KB-025）並發生**本專案第 4 次意外機密外洩事故**（KB-026）——已完成憑證輪替、規則已強化為「zeabur variable create／update／delete 一律不可直接查看輸出」。**KB-027：「上游規格」章節引用長期查無實據，已找到並補齊真正的完整規格（archive/upstream_spec/）**。**KB-023：7 份真實樣本僅 14% 有文字層，86% 進不了本管線；PO 拍板 OCR 排程維持原計畫、排在 E2-F3 之後不提前**。⚠️ 專案路徑：`C:\Users\jr_ho\Desktop\Medical-AI-Work\health-devkit`（KB-004）。外部依賴：Supabase 東京 ✅；Zeabur ✅ 已上線；Storage bucket ✅（Supabase Storage，A18）；Google OAuth（E1-F3 前）／LLM key（E4-F3 前）／首批知識來源（E4-F1 前）後補。
 
 ## 2. 目前版本
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格見 `archive/upstream_spec/`（2026-07-17 補齊，KB-027）；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
-**Sprint 13（E4-F1：知識來源與檢索基座，實作＋測試完成，待 PO 確認部署）**：建立 `knowledge_sources`／`knowledge_chunks` 資料模型與純服務層函式 `searchKnowledge()`／`chunkText()`，供 E4-F2／E4-F3 未來使用，本輪無 API／UI。開工前確認「首批知識來源整備」時，PO 提供合作醫師王健宇醫師已出版衛教書籍《為什麼你的病總是看不好？》真實內容，取代原計畫合成資料；同批先前 OCR markdown 版本查核後發現系統性辨識錯誤，已否決不用，改由 AI 逐頁視覺閱讀轉錄 2 個試點章節（11/706 頁），`status` 設為 `draft`（A55）確保未經最終校對內容不被檢索引用。實作檢索機制時發現 Postgres 內建全文檢索對中文不斷詞，改用 `pg_trgm`＋`ILIKE`（A54 修正，KB-029）。全專案 119 個測試（+8）／typecheck／lint／`pnpm build` 全綠。**尚待 PO 確認 commit／push／正式站部署時機**。
+**Sprint 13（E4-F1：知識來源與檢索基座，正式結案）**：建立 `knowledge_sources`／`knowledge_chunks` 資料模型與純服務層函式 `searchKnowledge()`／`chunkText()`，供 E4-F2／E4-F3 未來使用，本輪無 API／UI。開工前確認「首批知識來源整備」時，PO 提供合作醫師王健宇醫師已出版衛教書籍《為什麼你的病總是看不好？》真實內容，取代原計畫合成資料；同批先前 OCR markdown 版本查核後發現系統性辨識錯誤，已否決不用，改由 AI 逐頁視覺閱讀轉錄 2 個試點章節（11/706 頁），`status` 設為 `draft`（A55）確保未經最終校對內容不被檢索引用。實作檢索機制時發現 Postgres 內建全文檢索對中文不斷詞，改用 `pg_trgm`＋`ILIKE`（A54 修正，KB-029）。全專案 119 個測試（+8）／typecheck／lint／`pnpm build` 全綠。已 commit（`a93fdbd`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，worker 日誌確認正常啟動；本輪無 API 路由，改直接查詢正式站共用資料庫確認 2 筆真實來源／43 筆 chunk 正確寫入且為 draft，`searchKnowledge()` 正確回傳 0 筆，安全閘門正式站同樣生效）。
 
 Sprint 12（E3-F1：健康戰情 Dashboard，正式結案，E3 Epic 全數完成）：新增專案預設首頁 `/projects/[id]`，依上游 §26 六區塊版面呈現健康戰情總覽。開工前釐清一個排序疑慮——上游 §26 完整線框圖描繪行動計畫已存在之後的畫面，一度以為該延後到 E4／E5 之後；查證 05_BACKLOG（E3-F1 前置依賴僅列 E2-F4）與上游 §7.1（「查看健康戰情」排在「建立行動計畫」之前）後確認不需延後（A51）。六區塊全建置：「目前健康狀態」／「早期變化」用真實資料呈現且不做電腦化超標判讀（A50，真正臨床解讀留給未來 E4-F3）；其餘 4 區塊誠實占位「尚未推出」。附帶修正全站既有 `<a href="/projects">` 應改用 `<Link>` 的技術債（新頁面觸發 ESLint 規則正確識別）。全專案 111 個測試（+6）／typecheck／lint／`pnpm build` 全綠；合成資料端到端真實管線＋瀏覽器互動驗證＋正式站真實功能驗證皆通過。已 commit（`e02871f`）＋push＋正式站部署驗證通過（web／worker 皆 `RUNNING`，新路由 404→401 確認上線）。**依 KB-028 教訓，`RUNNING` 後刻意等待約 3 分鐘緩衝期才驗證功能，本次未再遇到部署交接期競態，緩衝策略確認有效**。
 
@@ -26,10 +26,10 @@ Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）：A22（`pdfjs-dist` 伺�
 Sprint 6（E2-F1 上傳會話與預覽模組）：已 commit（`b2b413f`）＋push＋正式站部署驗證通過。⚠️ A21（惡意檔案掃描缺口）正式生效，登記 KB-021。
 
 ## 4. 下一步
-**PO 確認 Sprint 13 commit／push／正式站部署時機**；完成後開 Sprint 14 DOR（依既定順序推進 E4-F2：主張與衝突模型）。KB-018／KB-020 待 PO 決定處理時機（非阻塞）。
+**E4-F1 已正式結案並部署驗證通過**，下一輪開 Sprint 14 DOR（依既定順序推進 E4-F2：主張與衝突模型）。剩餘 36 章節（約 695 頁）真實內容轉錄方式待決定（非阻塞）；KB-018／KB-020 待 PO 決定處理時機（非阻塞）。
 
 ## 5. 最高優先事項
-Sprint 13 部署時機確認；剩餘 36 章節（約 695 頁）真實內容的轉錄方式待決定（非阻塞）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC：E4-F3 引用驗證。
+Sprint 14 DOR 規劃（E4-F2 主張與衝突模型）；剩餘 36 章節（約 695 頁）真實內容的轉錄方式待決定（非阻塞）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機；高風險 PoC：E4-F3 引用驗證。
 
 ## 6. 不可破壞的原則
 憲法 §3 醫療安全全列；未確認資料不入正式分析；健康內容不入日誌（白名單 redaction 已落地）。**機密處理鐵則（Sprint 8 再度強化）：絕不對含機密的檔案／指令輸出使用會印出完整內容的工具；`zeabur variable create／update／delete` 一律不可直接查看標準輸出（不只 `list`，這三者的成功確認訊息也會印出完整既有變數表，KB-026 實測證實）——一律重導向到檔案、用 `grep -c` 之類只回傳數字的方式確認成功，讀完立刻刪除。本專案已發生 4 次意外機密外洩，這條規則被違反過不只一次，往後必須嚴格遵守，不可自行判斷「這次應該沒關係」。
