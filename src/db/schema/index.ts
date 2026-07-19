@@ -9,3 +9,5 @@ export { testDefinitions } from "./test-definitions";
 export { testAliases } from "./test-aliases";
 export { testDefinitionUnits } from "./test-definition-units";
 export { observations } from "./observations";
+export { knowledgeSources } from "./knowledge-sources";
+export { knowledgeChunks } from "./knowledge-chunks";
