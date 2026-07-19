@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 12 實作＋測試＋瀏覽器驗證完成（2026-07-18）——**E3-F1：健康戰情 Dashboard**，尚待 PO 確認 commit／push／部署時機。
+> 目前狀態：Sprint 12 ✅ 已 commit（`e02871f`）＋push＋正式站部署驗證通過（2026-07-19）——**E3-F1：健康戰情 Dashboard**，E3 Epic 全數完成。
 
-## Sprint 12 — E3-F1：健康戰情 Dashboard（六區塊版面） ✅ 實作＋測試＋瀏覽器驗證完成，待 PO 確認部署
+## Sprint 12 — E3-F1：健康戰情 Dashboard（六區塊版面） ✅ 已 commit＋push＋正式站部署驗證通過
 
 - 期間：2026-07-18（單日完成）
 - DOR：✅ 通過（sprints/sprint-12-dor.md；A50–A53 由 PO 追認）
@@ -34,7 +34,10 @@
 - [x] 正常／邊緣／錯誤測試通過：Vitest 全專案 111 test／17 檔全綠（+6 新測試）；`pnpm build` 乾淨過；typecheck／lint 無新增錯誤（含修正全站既有 `<a>`→`<Link>` 技術債）
 - [x] 肉眼驗收：合成資料走完整真實管線＋瀏覽器互動驗證（六區塊渲染＋導覽），非僅單元測試
 - [x] 修正皆反映於規格與文件：本節＋SDD §15／SYNC／ROADMAP 已更新；OpenAPI 已補 dashboard GET 端點
-- [ ] commit／push／正式站部署驗證：待 PO 確認時機
+- [x] commit（`e02871f`）＋push＋正式站部署驗證通過
+
+### 正式站部署驗證（2026-07-19）
+web／worker 兩 service 皆確認部署於 commit `e02871f`、狀態 `RUNNING`；`/api/health` 200；新路由 `/api/projects/{id}/dashboard`（無 session）回 401（非 404，確認已上線）。**依 KB-028 教訓，`RUNNING` 後刻意等待約 3 分鐘緩衝期才進行功能驗證**，避開 worker 部署交接期競態。**真實功能端到端驗證**：對 https://health-devkit.zeabur.app 用 2 份合成 PDF（WBC 5.0／12.5，不同檢驗日期）走完整真實管線——上傳→正式站真實 Worker 解析→接受→確認→正式站真實 Worker 標準化→PATCH 設定檢驗日期→`GET .../dashboard`，正確回傳「目前健康狀態」（最新值 12.5，含參考區間，無超標判讀欄位）與「早期變化」（正確標示 up），本次未再遇到 KB-028 交接期競態，緩衝策略有效。驗證完成後清除測試帳號、專案、文件、Storage 物件；暫存腳本已刪除，未留存於 repo。
 
 ### 已知限制（誠實記錄，非誇大宣稱）
 - **六區塊版面全建置，但僅 2 區塊（目前健康狀態／早期變化）有真實資料**，其餘 4 區塊為占位，需等 E4（AI／知識庫）與 E5（行動計畫／回報／轉介）陸續完成才會有真正內容。E3 Epic「完成」指的是本輪範圍已依既定順序與依賴關係交付，非六區塊功能全數到位。
