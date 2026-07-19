@@ -110,6 +110,12 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
+              href={`/projects/${projectId}/chat`}
+              className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              健康問答
+            </Link>
+            <Link
               href={`/projects/${projectId}/trends`}
               className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
             >

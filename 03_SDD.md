@@ -152,7 +152,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E4-F3 串流問答引擎 PoC 1/2 完成（2026-07-19，Sprint 15，Feature 13/20）**：新增 `conversations`／`messages`／`message_citations` 三表＋`OpenAiLlmAdapter`（Sprint 1 已定義的 `LlmAdapter` 介面首次落地實作）＋對話服務層，串接 E4-F1／E4-F2／E2-F4 三塊既有基礎，證明「引用驗證端到端」（05_BACKLOG 唯一 🔴 風險項）技術可行：LLM 被要求僅能用 `[OBS:uuid]`／`[SRC:uuid]` 標籤引用資料，驗證時確認 ID 未虛構＋資料合法存在（結構性檢查，非語意一致性核對，A74）。**已用真實 OpenAI API 呼叫驗證核心 PoC 目標成功**（AC-2／AC-10）。本輪拆為 PoC 1/2＋PoC 2/2（A69，比照 E2-F2 先例），不含 UI／`regenerate`／頻率限制（C17）／進階安全過濾（僅 prompt 約束＋關鍵字掃描，非分類模型，A73／A76，延續 E4-F2 A62 一貫原則）。開工前 LLM API key 尚未備妥（A68），PO 申請後寫入 `.env` 時因保留 `.env.example` 的註解符號 `#` 導致 dotenv 讀不到值，已用腳本移除該符號修正（全程未印出金鑰內容）。全專案 135 個測試（+10，含 2 項真實 API 呼叫）／typecheck／lint／`pnpm build` 全綠。已 commit（`8cf66a0`＋`36aff4f`）＋push＋正式站部署驗證通過——過程中發現 PO 存入 Zeabur 的 `OPENAI_API_KEY` 實際未存進去（第一次「已存檔」的畫面截圖顯示變數清單仍缺該筆），且 SSE 路由層的例外處理當時完全沒有記錄日誌，導致無法從 Zeabur 日誌診斷；已用本機重現＋`zeabur variable list`（重導向暫存檔＋`grep -c` 計數，未印出機密內容）定位根因、補上日誌、PO 重新存入變數＋重啟後，對正式站真實 HTTP 端點跑通完整事件序列（`stream_started → retrieval_completed → content_delta → citation_added → stream_completed`）。
 
-下一步：依既定順序開 Sprint 16 DOR（E4-F3 PoC 2/2：UI／`regenerate`／頻率限制／進階安全打磨）；或先處理 KB-018／KB-020 已知限制。
+**E4-F3 串流問答引擎 PoC 2/2 完成，E4 Epic 全數完成（2026-07-19，Sprint 16，Feature 14/20）**：補齊 PoC 1/2 刻意排除的四項——新增 `/projects/[id]/chat` 對話頁 UI、`regenerate`（`messages.regeneratedFromMessageId` 自我參照 FK，A78）、頻率限制（C17，每帳號每日 30 則問答跨專案累計，A79）、安全提示顯示層級打磨（A81，不自動攔截）。過程中修正 Sprint 15 遺留的潛在缺陷：`runAssistantMessage()` 原本無條件抓對話第一則訊息當提問，多輪對話／重新產生下會答非所問，改為沿 `regeneratedFromMessageId` 回溯＋抓最近一則使用者訊息的 `resolveQuestionText()`。**已在真實瀏覽器對正式站共用資料庫＋真實 OpenAI API 完整操作驗證**：建立對話→提問→即時串流顯示八段結構完整回答→引用清單正確顯示→點擊重新產生取得新版本、UI 正確只顯示最新版本；並意外驗證安全設計在真實情境下有效（問題超出提供資料範圍時，LLM 誠實回覆「資料不足」而非編造）。瀏覽器驗證過程中重新遇到既有已知限制 KB-020（未驗證帳號無法登入，與 C6 UI 文案矛盾），非本輪新增缺陷，透過 Supabase Admin API 標記測試帳號驗證繞過。全專案 140 個測試（+5）／typecheck／lint／`pnpm build` 全綠。**尚待**：PO 確認 commit／push／正式站部署時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 16；之後依既定順序開 Sprint 17 DOR（E5-F1：健康行動計畫，PoC）；或先處理 KB-018／KB-020 已知限制。
 
 ## 16. 相關文件索引
 

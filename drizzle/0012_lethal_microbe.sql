@@ -1,0 +1,2 @@
+ALTER TABLE "messages" ADD COLUMN "regenerated_from_message_id" uuid;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_regenerated_from_message_id_messages_id_fk" FOREIGN KEY ("regenerated_from_message_id") REFERENCES "public"."messages"("id") ON DELETE no action ON UPDATE no action;

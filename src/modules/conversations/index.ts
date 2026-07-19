@@ -14,8 +14,24 @@ export function getLlmAdapter(): LlmAdapter {
 
 export { findOwnedConversation } from "./access";
 export type { ConversationRow } from "./access";
-export { createConversation, sendMessage, runAssistantMessage, cancelMessage } from "./service";
-export type { ConversationResult, SendMessageResult, SseEvent } from "./service";
+export {
+  createConversation,
+  listConversations,
+  listMessages,
+  sendMessage,
+  regenerateMessage,
+  runAssistantMessage,
+  cancelMessage,
+} from "./service";
+export type {
+  ConversationResult,
+  ListConversationsResult,
+  ListMessagesResult,
+  MessageWithCitations,
+  SendMessageResult,
+  RegenerateResult,
+  SseEvent,
+} from "./service";
 export { validateAndExtractCitations } from "./citation-validation";
 export { retrieveContext } from "./retrieval";
 export { buildSystemPrompt } from "./prompt";
