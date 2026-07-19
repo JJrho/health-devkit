@@ -1,5 +1,6 @@
 export { findOwnedPlan } from "./access";
 export type { PlanRow } from "./access";
+export type { ActionRow, MetricRow } from "./service";
 export {
   activatePlan,
   addAction,
@@ -24,6 +25,7 @@ export type {
   PlanResult,
   SubResourceResult,
   UpdatePlanInput,
+  UpdatePlanResult,
 } from "./service";
 export { checkPlanSafetyInfo, METRIC_CATEGORIES } from "./safety";
 export type { MetricCategory, SafetyCheckResult } from "./safety";

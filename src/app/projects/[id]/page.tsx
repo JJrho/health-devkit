@@ -116,6 +116,12 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
               健康問答
             </Link>
             <Link
+              href={`/projects/${projectId}/plans`}
+              className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              行動計畫
+            </Link>
+            <Link
               href={`/projects/${projectId}/trends`}
               className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
             >

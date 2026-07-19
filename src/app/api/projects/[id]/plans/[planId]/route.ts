@@ -8,7 +8,7 @@ type Context = { params: Promise<{ id: string; planId: string }> };
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "找不到這個行動計畫。",
-  INVALID_REQUEST: "計畫已啟用，本輪不開放編輯核心欄位。",
+  INVALID_REQUEST: "此計畫目前狀態無法編輯（已停止或已封存）。",
 };
 
 function denyAccess(requestId: string, userId: string, projectId: string, path: string, method: string) {
@@ -30,10 +30,17 @@ export const GET = withErrorEnvelope<Context>(async (request, requestId, context
     return apiError("NOT_FOUND", ERROR_MESSAGES.NOT_FOUND!, 404, requestId);
   }
 
-  return attachSlidingCookie(apiOk({ plan: result.plan }, requestId), auth);
+  return attachSlidingCookie(
+    apiOk({ plan: result.plan, actions: result.actions, metrics: result.metrics }, requestId),
+    auth,
+  );
 });
 
-/** PATCH .../plans/{planId}（A89：僅 draft／needs_info 可就地編輯） */
+/**
+ * PATCH .../plans/{planId}——`draft`／`needs_info` 就地編輯；`active`／`paused`
+ * 改為新增版本（A96），回應的 `plan.id` 會是新版本 id，前端需以此更新本地狀態；
+ * `stopped`／`archived` 一律拒絕（409）。
+ */
 export const PATCH = withErrorEnvelope<Context>(async (request, requestId, context) => {
   const auth = await requireSession(request, requestId);
   if (!("userId" in auth)) return auth;
@@ -69,7 +76,7 @@ export const PATCH = withErrorEnvelope<Context>(async (request, requestId, conte
     return apiError(result.code, ERROR_MESSAGES[result.code] ?? "更新失敗", status, requestId);
   }
 
-  return attachSlidingCookie(apiOk({ status: "updated" }, requestId), auth);
+  return attachSlidingCookie(apiOk({ plan: result.plan }, requestId), auth);
 });
 
 /** DELETE .../plans/{planId}（軟刪除） */

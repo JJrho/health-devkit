@@ -207,17 +207,21 @@ describe.skipIf(!hasDb)("plans module（整合，需 DATABASE_URL）", () => {
     expect(fetched).toEqual({ ok: false, code: "NOT_FOUND" });
   });
 
-  it("AC-9（延伸）：updatePlan 僅 draft／needs_info 可編輯，active 計畫編輯應拒絕", async () => {
+  it("AC-9（延伸）：updatePlan 於 draft／needs_info 就地編輯，stopped 計畫編輯應拒絕（Sprint 18：active／paused 改走版本鏈，見 plans-part2-service.test.ts）", async () => {
     const ownerId = await seedUser();
     const project = await createProject(ownerId, "編輯限制測試專案");
     const planId = await createReadyPlan(ownerId, project.id);
 
     const draftEdit = await updatePlan(ownerId, project.id, planId, { title: "改標題" });
-    expect(draftEdit).toEqual({ ok: true });
+    expect(draftEdit.ok).toBe(true);
+    if (!draftEdit.ok) return;
+    expect(draftEdit.plan.id).toBe(planId);
+    expect(draftEdit.plan.title).toBe("改標題");
 
     await activatePlan(ownerId, project.id, planId);
-    const activeEdit = await updatePlan(ownerId, project.id, planId, { title: "再改一次" });
-    expect(activeEdit).toEqual({ ok: false, code: "INVALID_REQUEST" });
+    await stopPlan(ownerId, project.id, planId, "user_choice");
+    const stoppedEdit = await updatePlan(ownerId, project.id, planId, { title: "再改一次" });
+    expect(stoppedEdit).toEqual({ ok: false, code: "INVALID_REQUEST" });
   });
 
   it("AC-10（日誌 P0）：建立／啟用計畫過程不將健康敘述內容寫入日誌", async () => {

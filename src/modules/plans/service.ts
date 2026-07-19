@@ -7,10 +7,18 @@ import { checkPlanSafetyInfo, METRIC_CATEGORIES, type MetricCategory } from "./s
 
 type AccessErrorCode = "PROJECT_ACCESS_DENIED" | "NOT_FOUND";
 
+export type ActionRow = typeof interventionActions.$inferSelect;
+export type MetricRow = typeof trackingMetrics.$inferSelect;
+
 export type PlanResult = { ok: true; planId: string } | { ok: false; code: AccessErrorCode };
-export type PlanDetailResult = { ok: true; plan: PlanRow } | { ok: false; code: AccessErrorCode };
+export type PlanDetailResult =
+  | { ok: true; plan: PlanRow; actions: ActionRow[]; metrics: MetricRow[] }
+  | { ok: false; code: AccessErrorCode };
 export type ListPlansResult = { ok: true; plans: PlanRow[] } | { ok: false; code: "PROJECT_ACCESS_DENIED" };
 export type MutationResult = { ok: true } | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" };
+export type UpdatePlanResult =
+  | { ok: true; plan: PlanRow }
+  | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" };
 
 export type ActivateResult =
   | { ok: true; plan: PlanRow }
@@ -20,6 +28,7 @@ export type ActivateResult =
 export type SubResourceResult = { ok: true; id: string } | { ok: false; code: AccessErrorCode };
 
 const EDITABLE_STATUSES = new Set(["draft", "needs_info"]);
+const ADJUSTABLE_STATUSES = new Set(["active", "paused"]);
 const TERMINAL_STATUSES = new Set(["stopped", "archived"]);
 
 export interface CreatePlanInput {
@@ -54,6 +63,11 @@ export async function createPlan(
   return { ok: true, planId: row!.id };
 }
 
+/**
+ * A96／A97：已啟用計畫的調整（PATCH）改為新增列＋前版封存的版本鏈，
+ * 列表僅回傳版本鏈末端（比照 `messages` regenerate 排除已取代版本模式，A78 先例），
+ * 不重複顯示被 `previousVersionId` 指到的舊版本。
+ */
 export async function listPlans(userId: string, projectId: string): Promise<ListPlansResult> {
   const project = await findOwnedProject(userId, projectId);
   if (!project) return { ok: false, code: "PROJECT_ACCESS_DENIED" };
@@ -62,13 +76,26 @@ export async function listPlans(userId: string, projectId: string): Promise<List
     .select()
     .from(interventionPlans)
     .where(and(eq(interventionPlans.projectId, project.id), isNull(interventionPlans.deletedAt)));
-  return { ok: true, plans: rows };
+  const supersededIds = new Set(rows.filter((p) => p.previousVersionId).map((p) => p.previousVersionId!));
+  const visible = rows.filter((p) => !supersededIds.has(p.id));
+  return { ok: true, plans: visible };
 }
 
 export async function getPlan(userId: string, projectId: string, planId: string): Promise<PlanDetailResult> {
   const found = await findOwnedPlan(userId, projectId, planId);
   if (!found.ok) return found;
-  return { ok: true, plan: found.plan };
+
+  const db = getDb();
+  const actions = await db
+    .select()
+    .from(interventionActions)
+    .where(and(eq(interventionActions.planId, found.plan.id), isNull(interventionActions.deletedAt)));
+  const metrics = await db
+    .select()
+    .from(trackingMetrics)
+    .where(and(eq(trackingMetrics.planId, found.plan.id), isNull(trackingMetrics.deletedAt)));
+
+  return { ok: true, plan: found.plan, actions, metrics };
 }
 
 export interface UpdatePlanInput {
@@ -80,23 +107,104 @@ export interface UpdatePlanInput {
   reviewDate?: Date;
 }
 
-/** A89：僅 draft／needs_info 狀態可就地編輯；已啟用計畫本輪不開放編輯，留待 Part 2/2。 */
+/**
+ * draft／needs_info：就地編輯（autosave 友善）。
+ * active／paused（A96）：改為新增列＋前版封存的版本鏈，非原地覆寫，落實憲法 §4
+ * 「原值永遠保留、編輯建立新版本」。其餘狀態（stopped／archived）不可編輯。
+ */
 export async function updatePlan(
   userId: string,
   projectId: string,
   planId: string,
   input: UpdatePlanInput,
-): Promise<MutationResult> {
+): Promise<UpdatePlanResult> {
   const found = await findOwnedPlan(userId, projectId, planId);
   if (!found.ok) return found;
   const plan = found.plan;
-  if (!EDITABLE_STATUSES.has(plan.status)) return { ok: false, code: "INVALID_REQUEST" };
 
-  await getDb()
-    .update(interventionPlans)
-    .set({ ...input, updatedAt: new Date() })
-    .where(eq(interventionPlans.id, plan.id));
-  return { ok: true };
+  if (EDITABLE_STATUSES.has(plan.status)) {
+    const [updated] = await getDb()
+      .update(interventionPlans)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(interventionPlans.id, plan.id))
+      .returning();
+    return { ok: true, plan: updated! };
+  }
+
+  if (ADJUSTABLE_STATUSES.has(plan.status)) {
+    const newPlan = await createAdjustedVersion(plan, input);
+    return { ok: true, plan: newPlan };
+  }
+
+  return { ok: false, code: "INVALID_REQUEST" };
+}
+
+/**
+ * A96／A97／A100：建立新版本、複製子資源、重新跑安全審查。
+ * `input` 欄位為 undefined 時沿用舊值；顯式傳入空字串（清空欄位）會生效，
+ * 讓「調整」真的可以移除安全欄位——因此必須重新審查（A100），不可維持 active。
+ */
+async function createAdjustedVersion(plan: PlanRow, input: UpdatePlanInput): Promise<PlanRow> {
+  const db = getDb();
+  const actions = await db
+    .select()
+    .from(interventionActions)
+    .where(and(eq(interventionActions.planId, plan.id), isNull(interventionActions.deletedAt)));
+  const metrics = await db
+    .select()
+    .from(trackingMetrics)
+    .where(and(eq(trackingMetrics.planId, plan.id), isNull(trackingMetrics.deletedAt)));
+
+  return db.transaction(async (tx) => {
+    await tx
+      .update(interventionPlans)
+      .set({ status: "archived", updatedAt: new Date() })
+      .where(eq(interventionPlans.id, plan.id));
+
+    const [newPlan] = await tx
+      .insert(interventionPlans)
+      .values({
+        projectId: plan.projectId,
+        title: input.title ?? plan.title,
+        baseline: input.baseline ?? plan.baseline,
+        riskNote: input.riskNote ?? plan.riskNote,
+        stopCondition: input.stopCondition ?? plan.stopCondition,
+        referralCondition: input.referralCondition ?? plan.referralCondition,
+        reviewDate: input.reviewDate ?? plan.reviewDate,
+        status: plan.status,
+        previousVersionId: plan.id,
+        version: plan.version + 1,
+      })
+      .returning();
+
+    if (actions.length > 0) {
+      await tx.insert(interventionActions).values(
+        actions.map((a) => ({ planId: newPlan!.id, description: a.description, category: a.category })),
+      );
+    }
+    if (metrics.length > 0) {
+      await tx.insert(trackingMetrics).values(
+        metrics.map((m) => ({
+          planId: newPlan!.id,
+          category: m.category,
+          name: m.name,
+          description: m.description,
+        })),
+      );
+    }
+
+    const check = checkPlanSafetyInfo(newPlan!, metrics.map((m) => m.category));
+    if (!check.ok) {
+      const [downgraded] = await tx
+        .update(interventionPlans)
+        .set({ status: "needs_info", updatedAt: new Date() })
+        .where(eq(interventionPlans.id, newPlan!.id))
+        .returning();
+      return downgraded!;
+    }
+
+    return newPlan!;
+  });
 }
 
 export async function deletePlan(userId: string, projectId: string, planId: string): Promise<MutationResult> {
