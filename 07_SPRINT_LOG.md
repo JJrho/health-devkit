@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 15 實作＋測試完成，尚待 commit／push／正式站部署驗證（2026-07-19）——**E4-F3：SSE 串流問答引擎（PoC 1/2）**。核心 PoC 目標（引用驗證端到端，05_BACKLOG 唯一 🔴 風險項）已用真實 OpenAI API 呼叫驗證成功：LLM 確實遵循我方要求的 `[OBS:uuid]`／`[SRC:uuid]` 引用標籤格式，虛構或跨專案的引用皆正確被結構性驗證剔除。
+> 目前狀態：Sprint 15 ✅ 已 commit（`8cf66a0`＋`36aff4f`）＋push＋正式站部署驗證通過（2026-07-19）——**E4-F3：SSE 串流問答引擎（PoC 1/2）**。核心 PoC 目標（引用驗證端到端，05_BACKLOG 唯一 🔴 風險項）已用真實 OpenAI API 呼叫、對正式站真實 HTTP 端點驗證成功：LLM 確實遵循我方要求的 `[OBS:uuid]`／`[SRC:uuid]` 引用標籤格式，虛構或跨專案的引用皆正確被結構性驗證剔除。
 
-## Sprint 15 — E4-F3：SSE 串流問答引擎（PoC 1/2）✅ 實作＋測試完成，尚待 PO 確認部署時機
+## Sprint 15 — E4-F3：SSE 串流問答引擎（PoC 1/2）✅ 已 commit＋push＋正式站部署驗證通過
 
 - 期間：2026-07-19（單日完成）
 - DOR：✅ 通過（sprints/sprint-15-dor.md；A68–A77 由 PO 追認）
@@ -36,8 +36,17 @@
 ### DOD 核對
 - [x] 正常／邊緣／錯誤測試通過：全數含真實 API 呼叫在內全綠
 - [x] 肉眼驗收：N/A（本輪無 UI，A75）
-- [x] 修正皆反映於規格與文件：本節已更新；SDD／SYNC／ROADMAP 待收尾一併更新
-- [ ] commit／push／正式站部署驗證：**尚待 PO 確認部署時機**
+- [x] 修正皆反映於規格與文件：本節＋KB-031＋SDD／SYNC／ROADMAP 已更新
+- [x] commit（`8cf66a0`＋`36aff4f`）＋push＋正式站部署驗證通過
+
+### 正式站部署驗證（2026-07-19，過程含一次真實故障排除）
+第一次驗證（LLM key 已由 PO 存進 Zeabur web service 環境變數後）跑正式站端到端測試，SSE 串流立即回 `stream_failed`。診斷過程：
+1. SSE 路由層的 catch 區塊當時完全沒有記錄任何日誌，Zeabur 執行期日誌查無相關錯誤——**發現本輪一個實質缺口，已補上 `logger.error`（僅記 `errorName`，不含健康內容，commit `36aff4f`）**。
+2. 用本機 dev server 跑完全相同的 HTTP 路由程式碼（非單元測試的直接函式呼叫，是真正發 HTTP 請求），citation_added／stream_completed 皆正常——**證明程式碼本身無誤**，問題出在正式站環境。
+3. 用 `zeabur variable list`（依既定規則整段重導向到暫存檔、僅 `grep -c` 確認筆數、讀完即刪，全程未印出任何機密內容）確認 web service 環境變數清單中根本沒有 `OPENAI_API_KEY`——PO 先前的「已存檔」實際上沒有真的存進去。
+4. PO 重新在 Zeabur 主控台以「＋新增」新增該變數並確認存檔，畫面截圖顯示變數清單仍缺該筆，追加確認後 `grep -c` 回傳 1，確認變數已存在。
+5. 執行 `zeabur service restart` 兩次確保容器載入新變數，`/api/health` 回 200 後重跑正式站真實 HTTP 端到端測試：`stream_started → retrieval_completed → content_delta → citation_added → stream_completed` 完整跑通，引用驗證正確運作。
+web／worker 兩 service 皆確認部署於 commit `8cf66a0`（`36aff4f` 為隨後的日誌修正 commit，同步部署中），狀態 `RUNNING`；worker 未變更，僅例行確認健康。
 
 ### 已知限制（誠實記錄，非誇大宣稱）
 - **僅 PoC 1/2**：無 UI（純後端＋API，本輪透過整合測試直接消費 SSE 邏輯驗證）、無 `regenerate`、無頻率限制（C17：每日 30 則問答）、無進階安全過濾（僅 prompt 約束＋關鍵字掃描警示，不自動攔截）。
