@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError, newRequestId } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { requireSession } from "@/lib/require-session";
 import { auditAccessDenied, findOwnedProject } from "@/modules/projects";
 import { findOwnedConversation, getLlmAdapter, runAssistantMessage } from "@/modules/conversations";
@@ -42,7 +43,11 @@ export async function GET(request: NextRequest, context: Context): Promise<Respo
         for await (const event of runAssistantMessage(messageId, project.id, getLlmAdapter())) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         }
-      } catch {
+      } catch (err) {
+        logger.error("SSE 串流路由層例外", {
+          requestId,
+          errorName: err instanceof Error ? err.constructor.name : "UnknownError",
+        });
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ type: "stream_failed", errorCode: "INTERNAL_ERROR" })}\n\n`),
         );
