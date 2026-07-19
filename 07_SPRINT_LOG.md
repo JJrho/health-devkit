@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 17 實作＋測試完成，尚待 commit／push／正式站部署驗證（2026-07-19）——**E5-F1：行動計畫與安全規則引擎（Part 1/2）**。三張新表（intervention_plans／intervention_actions／tracking_metrics）＋服務層＋API，安全審查採結構化欄位完整性檢查（A87），不含 UI，留待 Part 2/2（Sprint 18）。
+> 目前狀態：Sprint 17 已 commit／push／正式站部署驗證通過（2026-07-19）——**E5-F1：行動計畫與安全規則引擎（Part 1/2）**。三張新表（intervention_plans／intervention_actions／tracking_metrics）＋服務層＋API，安全審查採結構化欄位完整性檢查（A87），不含 UI，留待 Part 2/2（Sprint 18）。
 
-## Sprint 17 — E5-F1：行動計畫與安全規則引擎（Part 1/2）✅ 實作＋測試完成，尚待 commit／push／部署
+## Sprint 17 — E5-F1：行動計畫與安全規則引擎（Part 1/2）✅ 實作＋測試＋正式站部署驗證全數完成
 
 - 期間：2026-07-19（單日完成）
 - DOR：✅ 通過（sprints/sprint-17-dor.md；A84–A93 由 PO 追認）
@@ -32,12 +32,23 @@
 ### 實作中發現並修正的缺陷
 `findOwnedPlan()` 初版把「沒有權限」與「資源不存在」collapse 成同一個 `null` 回傳值，導致 AC-8 的跨帳號測試意外收到 `NOT_FOUND` 而非 `PROJECT_ACCESS_DENIED`（測試當場抓到）。比照 `observations` 模組既有的 `findOwnedObservation` 兩段式判斷慣例修正：先以 `findOwnedProject` 判斷第 1／2／4 層（非擁有者一律 `PROJECT_ACCESS_DENIED`），再判斷 plan 是否存在於該 project（否則 `NOT_FOUND`），回傳型別改為 `{ok:true, plan} | {ok:false, code}` 明確區分兩種情境。修正後全數服務層函式呼叫點同步更新。
 
+### 正式站部署驗證（2026-07-19）
+- commit `6e48939`「Sprint 17 實作：E5-F1 行動計畫與安全規則引擎（Part 1/2）」已 push 至 main，Zeabur web service 自動建置部署，`deployment list` 確認進入 `RUNNING`；`/api/health` 回 200＋`{"status":"ok"}`
+- 依 KB-025 鐵則，不只看 `RUNNING`／health 200 就結案：本輪無 UI，改用 `curl`＋真實測試帳號（Admin API 直接建立＋確認，跳過寄信流程，比照 Sprint 16／17 部署驗證模式）對正式站真實網域（`health-devkit.zeabur.app`）逐一驗證完整計畫生命週期：
+  - 建立草稿（僅標題）→ `activate` 因安全欄位與三分類指標皆缺漏 → 正確回 `PLAN_SAFETY_INFO_REQUIRED`（422）＋完整缺漏清單
+  - 補齊三分類指標＋安全欄位 → 再次 `activate` → 成功轉 `active`
+  - 嘗試編輯已啟用計畫 → 正確回 `INVALID_REQUEST`（409，編輯鎖定生效）
+  - `pause`→`resume`→`stop("adverse_event")` 狀態轉換皆正確，`stopReason` 正確記錄；對已終態計畫再次 `stop` → 正確回 `INVALID_REQUEST`
+  - 第二個測試帳號嘗試存取第一個帳號的計畫（`GET`／`pause`）→ 一律 `PROJECT_ACCESS_DENIED`（403），確認 KB-032 修正在生產環境正確生效
+  - 軟刪除後計畫不出現在列表、直接查詢回 `NOT_FOUND`（404）
+- 驗證完畢後已將兩組測試帳號（含 Supabase Auth）、專案、計畫／行動／指標全數清除，不留存於共用資料庫
+
 ### DOD 核對
-- [x] 正常／邊緣／錯誤測試通過：整合測試 10 項全綠
+- [x] 正常／邊緣／錯誤測試通過：整合測試 10 項全綠＋正式站真實 API 端到端驗證全數通過
 - [ ] 肉眼驗收：本輪無 UI（A88），留待 Part 2/2
 - [x] 沒有新增明顯 UI/UX 問題：不適用（無 UI）
 - [x] 修正皆反映於規格與文件：本節已更新；SDD／SYNC／ROADMAP 一併更新
-- [ ] commit／push／正式站部署驗證：**尚待 PO 確認部署時機**
+- [x] commit／push／正式站部署驗證：**已完成（commit `6e48939`，2026-07-19）**
 
 ### 已知限制（誠實記錄，非誇大宣稱）
 - **安全審查為結構化欄位完整性檢查，非對健康背景內容的語意判讀**：`activatePlan()` 只確認計畫自身欄位與指標分類齊全，不對 `health_profiles` 內容做正確性或充分性判斷（A87）。
