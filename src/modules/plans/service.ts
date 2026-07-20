@@ -1,6 +1,14 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { checkIns, interventionActions, interventionPlans, symptomEvents, trackingMetrics } from "@/db/schema";
+import {
+  checkIns,
+  escalationSummaries,
+  interventionActions,
+  interventionPlans,
+  planReviews,
+  symptomEvents,
+  trackingMetrics,
+} from "@/db/schema";
 import { findOwnedProject } from "@/modules/projects";
 import { findOwnedPlan, type PlanRow } from "./access";
 import { checkPlanSafetyInfo, METRIC_CATEGORIES, type MetricCategory } from "./safety";
@@ -11,6 +19,8 @@ export type ActionRow = typeof interventionActions.$inferSelect;
 export type MetricRow = typeof trackingMetrics.$inferSelect;
 export type CheckInRow = typeof checkIns.$inferSelect;
 export type SymptomEventRow = typeof symptomEvents.$inferSelect;
+export type PlanReviewRow = typeof planReviews.$inferSelect;
+export type EscalationSummaryRow = typeof escalationSummaries.$inferSelect;
 
 export type PlanResult = { ok: true; planId: string } | { ok: false; code: AccessErrorCode };
 export type PlanDetailResult =
@@ -21,6 +31,8 @@ export type PlanDetailResult =
       metrics: MetricRow[];
       checkIns: CheckInRow[];
       symptomEvents: SymptomEventRow[];
+      reviews: PlanReviewRow[];
+      escalationSummaries: EscalationSummaryRow[];
     }
   | { ok: false; code: AccessErrorCode };
 export type ListPlansResult = { ok: true; plans: PlanRow[] } | { ok: false; code: "PROJECT_ACCESS_DENIED" };
@@ -39,7 +51,8 @@ export type ActivateResult =
 export type SubResourceResult = { ok: true; id: string } | { ok: false; code: AccessErrorCode };
 
 const EDITABLE_STATUSES = new Set(["draft", "needs_info"]);
-const ADJUSTABLE_STATUSES = new Set(["active", "paused"]);
+/** A116：ineffective／escalated 亦可透過既有版本鏈調整回到 active（比照上游 §18.3 adjusted→active）。 */
+const ADJUSTABLE_STATUSES = new Set(["active", "paused", "ineffective", "escalated"]);
 const TERMINAL_STATUSES = new Set(["stopped", "archived"]);
 
 /** A110：因不良反應停止的計畫，錯誤碼精緻化為上游 §24 逐字定義的 PLAN_ADVERSE_EVENT。 */
@@ -115,6 +128,11 @@ export async function getPlan(userId: string, projectId: string, planId: string)
     .from(checkIns)
     .where(and(eq(checkIns.planId, found.plan.id), isNull(checkIns.deletedAt)));
   const symptomEventRows = await db.select().from(symptomEvents).where(eq(symptomEvents.planId, found.plan.id));
+  const reviewRows = await db.select().from(planReviews).where(eq(planReviews.planId, found.plan.id));
+  const escalationSummaryRows = await db
+    .select()
+    .from(escalationSummaries)
+    .where(eq(escalationSummaries.planId, found.plan.id));
 
   return {
     ok: true,
@@ -123,6 +141,8 @@ export async function getPlan(userId: string, projectId: string, planId: string)
     metrics,
     checkIns: checkInRows,
     symptomEvents: symptomEventRows,
+    reviews: reviewRows,
+    escalationSummaries: escalationSummaryRows,
   };
 }
 
@@ -168,6 +188,11 @@ export async function updatePlan(
   return { ok: false, code: "INVALID_REQUEST" };
 }
 
+/** A116：ineffective／escalated 調整後回到 active（比照上游 §18.3 adjusted→active）；active／paused 調整維持原狀態不變。 */
+function nextVersionBaseStatus(status: string): string {
+  return status === "ineffective" || status === "escalated" ? "active" : status;
+}
+
 /**
  * A96／A97／A100：建立新版本、複製子資源、重新跑安全審查。
  * `input` 欄位為 undefined 時沿用舊值；顯式傳入空字串（清空欄位）會生效，
@@ -200,7 +225,7 @@ async function createAdjustedVersion(plan: PlanRow, input: UpdatePlanInput): Pro
         stopCondition: input.stopCondition ?? plan.stopCondition,
         referralCondition: input.referralCondition ?? plan.referralCondition,
         reviewDate: input.reviewDate ?? plan.reviewDate,
-        status: plan.status,
+        status: nextVersionBaseStatus(plan.status),
         previousVersionId: plan.id,
         version: plan.version + 1,
       })

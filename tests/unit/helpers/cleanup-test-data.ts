@@ -4,6 +4,7 @@ import {
   checkIns,
   conversations,
   documents,
+  escalationSummaries,
   extractedItemEdits,
   extractedItems,
   healthProfiles,
@@ -12,6 +13,7 @@ import {
   messageCitations,
   messages,
   observations,
+  planReviews,
   projects,
   sessions,
   symptomEvents,
@@ -94,6 +96,9 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
       // E5-F2：check_ins 有 FK 指向 intervention_plans／tracking_metrics，須先刪
       await db.delete(checkIns).where(inArray(checkIns.planId, planIds));
       await db.delete(symptomEvents).where(inArray(symptomEvents.planId, planIds));
+      // E5-F3：plan_reviews／escalation_summaries 有 FK 指向 intervention_plans，須先刪
+      await db.delete(planReviews).where(inArray(planReviews.planId, planIds));
+      await db.delete(escalationSummaries).where(inArray(escalationSummaries.planId, planIds));
       await db.delete(interventionActions).where(inArray(interventionActions.planId, planIds));
       await db.delete(trackingMetrics).where(inArray(trackingMetrics.planId, planIds));
     }

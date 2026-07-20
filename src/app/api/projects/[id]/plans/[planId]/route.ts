@@ -39,6 +39,8 @@ export const GET = withErrorEnvelope<Context>(async (request, requestId, context
         metrics: result.metrics,
         checkIns: result.checkIns,
         symptomEvents: result.symptomEvents,
+        reviews: result.reviews,
+        escalationSummaries: result.escalationSummaries,
       },
       requestId,
     ),

@@ -47,12 +47,28 @@ interface SymptomEventView {
   status: string;
 }
 
+interface ReviewView {
+  id: string;
+  status: string;
+  classification: string | null;
+  notes: string | null;
+  reviewedAt: string | null;
+}
+
+interface EscalationSummaryView {
+  id: string;
+  status: string;
+  content: string;
+}
+
 interface PlanDetail {
   plan: PlanView;
   actions: ActionView[];
   metrics: MetricView[];
   checkIns: CheckInView[];
   symptomEvents: SymptomEventView[];
+  reviews: ReviewView[];
+  escalationSummaries: EscalationSummaryView[];
 }
 
 type LoadState = "loading" | "ready" | "unauthorized" | "denied" | "error";
@@ -65,6 +81,8 @@ const STATUS_LABEL: Record<string, string> = {
   paused: "已暫停",
   stopped: "已停止",
   review_due: "待檢討",
+  ineffective: "可能無效",
+  escalated: "需要專業評估",
   archived: "已封存",
 };
 
@@ -79,6 +97,27 @@ const SYMPTOM_STATUS_LABEL: Record<string, string> = {
   monitoring: "觀察中",
   resolved: "已解決",
   escalated: "需要專業評估",
+};
+
+/** A114：十分類逐字對照上游 §9.3；下拉選單以此為白名單，非自由文字。 */
+const REVIEW_CLASSIFICATION_LABEL: Record<string, string> = {
+  improved: "有改善",
+  partially_improved: "部分改善",
+  temporarily_stable: "暫時穩定",
+  not_due_yet: "尚未到檢討時間",
+  insufficient_data: "執行資料不足",
+  data_not_comparable: "測量資料不可比較",
+  possibly_ineffective: "計畫可能無效",
+  hard_to_sustain: "計畫難以持續",
+  adverse_event: "出現不良反應",
+  needs_professional_evaluation: "需要專業評估",
+};
+
+const ESCALATION_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  ready: "已完成",
+  exported: "已匯出",
+  deleted: "已刪除",
 };
 
 /** E5-F1 Part 2/2（SDD §4.10）：行動計畫頁，已啟用計畫的編輯會建立新版本（A96） */
@@ -317,6 +356,67 @@ export default function PlansPage({ params }: { params: Promise<{ id: string }> 
     await refreshAfterChange(planId);
   }
 
+  async function handleStartReview(planId: string) {
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/reviews`, { method: "POST" });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "建立檢討失敗，請再試一次。");
+      return;
+    }
+    await loadDetail(planId);
+  }
+
+  async function handleCompleteReview(planId: string, reviewId: string, classification: string, notes: string) {
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/reviews/${reviewId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ classification, notes: notes || undefined }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "送出檢討失敗，請再試一次。");
+      return;
+    }
+    await refreshAfterChange(planId);
+  }
+
+  async function handleCreateEscalationSummary(planId: string) {
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/escalation-summary`, {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "產生轉介摘要失敗，請再試一次。");
+      return;
+    }
+    await loadDetail(planId);
+  }
+
+  async function handleUpdateEscalationSummary(planId: string, summaryId: string, status: string) {
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/escalation-summary/${summaryId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "更新轉介摘要失敗，請再試一次。");
+      return;
+    }
+    await loadDetail(planId);
+  }
+
+  async function handleDeleteEscalationSummary(planId: string, summaryId: string) {
+    await fetch(`/api/projects/${projectId}/plans/${planId}/escalation-summary/${summaryId}`, {
+      method: "DELETE",
+    });
+    await loadDetail(planId);
+  }
+
   return (
     <main className="mx-auto min-h-screen max-w-3xl bg-slate-50 p-6">
       <h1 className="mb-6 text-3xl font-bold text-slate-900">行動計畫</h1>
@@ -393,6 +493,17 @@ export default function PlansPage({ params }: { params: Promise<{ id: string }> 
                     onUpdateSymptomEvent={(symptomEventId, input) =>
                       handleUpdateSymptomEvent(plan.id, symptomEventId, input)
                     }
+                    onStartReview={() => handleStartReview(plan.id)}
+                    onCompleteReview={(reviewId, classification, notes) =>
+                      handleCompleteReview(plan.id, reviewId, classification, notes)
+                    }
+                    onCreateEscalationSummary={() => handleCreateEscalationSummary(plan.id)}
+                    onUpdateEscalationSummary={(summaryId, status) =>
+                      handleUpdateEscalationSummary(plan.id, summaryId, status)
+                    }
+                    onDeleteEscalationSummary={(summaryId) =>
+                      handleDeleteEscalationSummary(plan.id, summaryId)
+                    }
                   />
                 )}
               </section>
@@ -429,6 +540,11 @@ function PlanDetailPanel({
   onRemoveCheckIn,
   onAddSymptomEvent,
   onUpdateSymptomEvent,
+  onStartReview,
+  onCompleteReview,
+  onCreateEscalationSummary,
+  onUpdateEscalationSummary,
+  onDeleteEscalationSummary,
 }: {
   detail: PlanDetail | null;
   onActivate: () => void;
@@ -452,6 +568,11 @@ function PlanDetailPanel({
   onRemoveCheckIn: (checkInId: string) => void;
   onAddSymptomEvent: (description: string, occurredAt: string, isAdverseEvent: boolean) => void;
   onUpdateSymptomEvent: (symptomEventId: string, input: { status?: string; isAdverseEvent?: boolean }) => void;
+  onStartReview: () => void;
+  onCompleteReview: (reviewId: string, classification: string, notes: string) => void;
+  onCreateEscalationSummary: () => void;
+  onUpdateEscalationSummary: (summaryId: string, status: string) => void;
+  onDeleteEscalationSummary: (summaryId: string) => void;
 }) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [actionDescription, setActionDescription] = useState("");
@@ -465,13 +586,34 @@ function PlanDetailPanel({
   const [symptomDescription, setSymptomDescription] = useState("");
   const [symptomOccurredAt, setSymptomOccurredAt] = useState("");
   const [symptomIsAdverseEvent, setSymptomIsAdverseEvent] = useState(false);
+  const [reviewClassification, setReviewClassification] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
 
   if (!detail) return <p className="mt-4 text-base text-slate-600">載入中…</p>;
 
-  const { plan, actions, metrics, checkIns, symptomEvents } = detail;
+  const { plan, actions, metrics, checkIns, symptomEvents, reviews, escalationSummaries } = detail;
   const isEditable = plan.status === "draft" || plan.status === "needs_info";
-  const isAdjustable = plan.status === "active" || plan.status === "paused";
+  const isAdjustable =
+    plan.status === "active" ||
+    plan.status === "paused" ||
+    plan.status === "ineffective" ||
+    plan.status === "escalated";
   const isExecutable = plan.status === "active" || plan.status === "paused";
+  const canStop =
+    plan.status === "active" ||
+    plan.status === "paused" ||
+    plan.status === "ineffective" ||
+    plan.status === "escalated" ||
+    isEditable;
+
+  const inReviewRow = reviews.find((r) => r.status === "in_review");
+  const completedReviews = reviews
+    .filter((r) => r.status === "completed")
+    .sort((a, b) => (b.reviewedAt ?? "").localeCompare(a.reviewedAt ?? ""));
+  const isReviewDue =
+    isExecutable && !inReviewRow && !!plan.reviewDate && new Date(plan.reviewDate) <= new Date();
+  const canCreateEscalationSummary = reviews.some((r) => r.classification === "needs_professional_evaluation");
+  const visibleEscalationSummaries = escalationSummaries.filter((s) => s.status !== "deleted");
 
   return (
     <div className="mt-4 flex flex-col gap-4 border-t border-slate-200 pt-4">
@@ -811,6 +953,136 @@ function PlanDetailPanel({
         )}
       </div>
 
+      <div>
+        <h3 className="mb-2 text-lg font-semibold text-slate-900">定期檢討</h3>
+        {plan.status === "ineffective" && (
+          <p className="mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            此計畫經檢討判斷可能無效。系統不會自動調整計畫內容或強度，您可以：維持現狀、透過下方「調整」簡化或替代方案、直接「停止」，或於下次檢討時標記為需要專業評估。
+          </p>
+        )}
+        {plan.status === "escalated" && (
+          <p className="mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            此計畫經檢討判斷需要專業評估。您可以在下方「專業轉介摘要」區塊產生一份摘要供就診時攜帶。
+          </p>
+        )}
+        {completedReviews.length === 0 ? (
+          <p className="text-base text-slate-600">尚未進行任何檢討。</p>
+        ) : (
+          <ul className="mb-2 flex flex-col gap-1">
+            {completedReviews.map((r) => (
+              <li key={r.id} className="text-base text-slate-700">
+                {r.reviewedAt?.slice(0, 10)}　{REVIEW_CLASSIFICATION_LABEL[r.classification ?? ""] ?? r.classification}
+                {r.notes && <span className="text-slate-500">（{r.notes}）</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {inReviewRow ? (
+          <div className="flex flex-col gap-2">
+            <label className="mb-1 block text-sm text-slate-700" htmlFor={`review-classification-${plan.id}`}>
+              檢討分類
+            </label>
+            <select
+              id={`review-classification-${plan.id}`}
+              value={reviewClassification}
+              onChange={(e) => setReviewClassification(e.target.value)}
+              className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              <option value="">請選擇</option>
+              {Object.entries(REVIEW_CLASSIFICATION_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              placeholder="檢討備註（可留空）"
+              rows={2}
+              className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+            />
+            <button
+              type="button"
+              disabled={!reviewClassification}
+              onClick={() => {
+                onCompleteReview(inReviewRow.id, reviewClassification, reviewNotes);
+                setReviewClassification("");
+                setReviewNotes("");
+              }}
+              className="self-start rounded-lg bg-slate-700 px-3 py-2 text-base font-semibold text-white focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:opacity-50"
+            >
+              送出檢討
+            </button>
+          </div>
+        ) : isReviewDue ? (
+          <button
+            type="button"
+            onClick={onStartReview}
+            className="rounded-lg bg-slate-700 px-3 py-2 text-base font-semibold text-white focus:outline-none focus:ring-4 focus:ring-blue-200"
+          >
+            開始檢討
+          </button>
+        ) : (
+          isExecutable &&
+          plan.reviewDate && <p className="text-sm text-slate-500">尚未達檢討日期（{plan.reviewDate.slice(0, 10)}）。</p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-lg font-semibold text-slate-900">專業轉介摘要</h3>
+        {visibleEscalationSummaries.length === 0 ? (
+          <p className="text-base text-slate-600">尚未產生任何轉介摘要。</p>
+        ) : (
+          <ul className="mb-2 flex flex-col gap-2">
+            {visibleEscalationSummaries.map((s) => (
+              <li key={s.id} className="rounded-lg border border-slate-200 p-3 text-base text-slate-700">
+                <pre className="whitespace-pre-wrap font-sans text-sm">{s.content}</pre>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-slate-600">狀態：{ESCALATION_STATUS_LABEL[s.status] ?? s.status}</span>
+                  {s.status === "draft" && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateEscalationSummary(s.id, "ready")}
+                      className="text-sm font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      標記已完成
+                    </button>
+                  )}
+                  {s.status === "ready" && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateEscalationSummary(s.id, "exported")}
+                      className="text-sm font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      標記已匯出
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteEscalationSummary(s.id)}
+                    className="text-sm font-semibold text-slate-600 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                  >
+                    刪除
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {canCreateEscalationSummary ? (
+          <button
+            type="button"
+            onClick={onCreateEscalationSummary}
+            className="rounded-lg bg-slate-700 px-3 py-2 text-base font-semibold text-white focus:outline-none focus:ring-4 focus:ring-blue-200"
+          >
+            產生轉介摘要
+          </button>
+        ) : (
+          <p className="text-sm text-slate-500">需先有一筆「需要專業評估」的檢討紀錄才能產生轉介摘要。</p>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-3">
         {(isEditable || isAdjustable) && (
           <button
@@ -848,7 +1120,7 @@ function PlanDetailPanel({
             恢復
           </button>
         )}
-        {(plan.status === "active" || plan.status === "paused" || isEditable) && (
+        {canStop && (
           <button
             type="button"
             onClick={onStop}

@@ -20,3 +20,5 @@ export { interventionActions } from "./intervention-actions";
 export { trackingMetrics } from "./tracking-metrics";
 export { checkIns } from "./check-ins";
 export { symptomEvents } from "./symptom-events";
+export { planReviews } from "./plan-reviews";
+export { escalationSummaries } from "./escalation-summaries";

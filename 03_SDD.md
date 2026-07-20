@@ -160,7 +160,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E5-F2 日常回報與症狀事件模組完成，正式結案（2026-07-20，Sprint 19，Feature 16/20）**：銜接 E5-F1，補上執行期間的日常追蹤（`check_ins`）與症狀事件回報（`symptom_events`）。核心設計：「不良反應暫停鏈」採**使用者明確標記，非系統自動判斷嚴重度**（A105）——`isAdverseEvent` 完全由使用者手動設定，設為 `true` 時立即呼叫 E5-F1 已預留的 `stopPlan(planId, "adverse_event")`（A90），系統不對症狀描述做語意分析自動判定。「因不良反應停止的計畫不得自動重新啟用」已由既有狀態機邏輯滿足（A106），本輪僅補回歸測試確認。`check_ins.value` 採自由文字非強制 numeric（A103）；`symptom_events` 本輪不提供 DELETE，只能補充或轉換狀態（A107）；`pausePlan`／`resumePlan`／`updatePlan` 於計畫因不良反應停止時，錯誤碼精緻化為上游 §24 逐字定義的 `PLAN_ADVERSE_EVENT`（A110）。UI 併入既有 `/projects/[id]/plans` 計畫詳情面板（A108）。全專案 164 個測試（+9）／typecheck／lint／`pnpm build` 全綠。已 commit（`1c219d5`）＋push＋**正式站部署驗證通過**：web／worker 兩 service 皆 `RUNNING`、`/api/health` 200；用 Admin API 建立正式站測試帳號，真實瀏覽器對正式站完整操作驗證——建立計畫並補齊安全欄位與三分類指標後啟用→新增日常回報→回報一般症狀事件（計畫不受影響）→回溯標記為不良反應，確認伺服器回應計畫立即轉 `stopped`／`adverse_event`，UI 同步移除所有可能重新啟用的操作按鈕→另以頁面內 `fetch` 直接呼叫 `/resume`／`/pause`，皆回 409 `PLAN_ADVERSE_EVENT`，確認 A106／A110 在正式站 API 層級亦成立，驗證用測試帳號與資料已全數清除。
 
-下一步：開 Sprint 20 DOR（依既定順序推進 E5-F3：定期檢討與無改善分類模組）。
+**E5-F3 定期檢討與無改善分類模組完成（2026-07-20，Sprint 20，Feature 17/20）**：銜接 E5-F2，補上定期檢討（十分類，上游 §9.3）與專業轉介摘要。核心設計：不落地 `review_due` 狀態，改以計算式判斷是否達檢討日（A113，本專案尚無日期觸發排程子系統）；`classification` 為十分類白名單，UI 下拉選單非自由文字（A114）；十分類結果僅觸發狀態標記（「計畫可能無效」→`ineffective`、「需要專業評估」→`escalated`、「出現不良反應」→比照 A105 呼叫 `stopPlan()`，其餘七類維持原狀態），系統從未自動調整行動、指標或強度（A115，落實憲法 §3）；`ineffective`／`escalated` 可透過既有版本鏈調整回到 `active`（A116，`ADJUSTABLE_STATUSES` 擴充）；已完成的檢討不可覆寫（A112）；轉介摘要為伺服器端純結構化聚合，不經 LLM 生成，僅在已有需要專業評估的檢討時可產生（A118／A119）。UI 併入既有 `/projects/[id]/plans` 計畫詳情面板（A120）。全專案 178 個測試（+14）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整操作驗證通過，含兩條核心路徑：計畫可能無效→調整回到 active（指標正確複製）；需要專業評估→產生轉介摘要→狀態轉換 draft→ready→exported→刪除，驗證用測試帳號與資料已全數清除。**尚待**：PO 確認 commit／push／正式站部署時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 20；之後開 Sprint 21 DOR（依既定順序推進 E1-F3：Google 登入）。
 
 ## 16. 相關文件索引
 
