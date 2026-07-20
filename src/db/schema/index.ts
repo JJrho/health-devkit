@@ -18,3 +18,5 @@ export { messageCitations } from "./message-citations";
 export { interventionPlans } from "./intervention-plans";
 export { interventionActions } from "./intervention-actions";
 export { trackingMetrics } from "./tracking-metrics";
+export { checkIns } from "./check-ins";
+export { symptomEvents } from "./symptom-events";

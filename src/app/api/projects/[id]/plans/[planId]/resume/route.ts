@@ -27,6 +27,9 @@ export const POST = withErrorEnvelope<Context>(async (request, requestId, contex
     if (result.code === "INVALID_REQUEST") {
       return apiError("INVALID_REQUEST", "只有暫停中的計畫可以恢復", 409, requestId);
     }
+    if (result.code === "PLAN_ADVERSE_EVENT") {
+      return apiError("PLAN_ADVERSE_EVENT", "已暫停相關行動，請先處理不舒服事件", 409, requestId);
+    }
     return apiError("NOT_FOUND", "找不到這個行動計畫。", 404, requestId);
   }
 

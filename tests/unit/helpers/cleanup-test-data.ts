@@ -1,6 +1,7 @@
 import { inArray, like } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
+  checkIns,
   conversations,
   documents,
   extractedItemEdits,
@@ -13,6 +14,7 @@ import {
   observations,
   projects,
   sessions,
+  symptomEvents,
   trackingMetrics,
   users,
 } from "@/db/schema";
@@ -89,6 +91,9 @@ export async function cleanupTestData(emailLikePattern: string): Promise<void> {
       .where(inArray(interventionPlans.projectId, projectIds));
     const planIds = plans.map((p) => p.id);
     if (planIds.length > 0) {
+      // E5-F2：check_ins 有 FK 指向 intervention_plans／tracking_metrics，須先刪
+      await db.delete(checkIns).where(inArray(checkIns.planId, planIds));
+      await db.delete(symptomEvents).where(inArray(symptomEvents.planId, planIds));
       await db.delete(interventionActions).where(inArray(interventionActions.planId, planIds));
       await db.delete(trackingMetrics).where(inArray(trackingMetrics.planId, planIds));
     }

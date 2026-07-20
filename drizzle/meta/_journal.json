@@ -99,6 +99,13 @@
       "when": 1784468323586,
       "tag": "0013_lumpy_night_nurse",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784539352788,
+      "tag": "0014_free_thundra",
+      "breakpoints": true
     }
   ]
 }

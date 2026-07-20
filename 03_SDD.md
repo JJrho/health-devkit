@@ -158,7 +158,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E5-F1 行動計畫與安全規則引擎 Part 2/2 完成，E5-F1 正式結案（2026-07-19，Sprint 18，Feature 15/20）**：補齊 Part 1/2 刻意排除的兩項——`/projects/[id]/plans` UI 頁面、已啟用計畫的編輯（版本鏈）。核心設計：`PATCH /plans/{id}` 於 `active`／`paused` 狀態下改為新增列＋前版封存（A96，比照 `observations` A42），`intervention_actions`／`tracking_metrics` 子資源隨版本鏈複製一份新列（A97），調整後立即重新跑結構化安全檢查，欄位或指標不齊全時新版本強制降為 `needs_info`（A100，防止調整變成繞過啟用審查的後門）。`listPlans()` 比照 `messages` regenerate 排除已取代版本。實作中同步修正一項因版本鏈行為變更而過期的既有測試斷言。全專案 155 個測試（+5）／typecheck／lint／`pnpm build` 全綠。已 commit（`026a9dd`）＋push＋**正式站部署驗證通過**：`deployment list` 確認 `RUNNING`、`/api/health` 200；本輪有 UI，改用真實瀏覽器對正式站真實網域（`health-devkit.zeabur.app`）完整操作驗證——建立→啟用失敗缺漏提示→補齊資訊啟用成功→調整產生新版本＋3 筆指標正確帶入新版本＋列表僅顯示 1 筆最新版本（舊版本正確隱藏）→暫停/恢復/停止皆正確運作→戰情頁「行動計畫」導覽連結正確，驗證用測試帳號與資料已全數清除。**E5-F1 兩輪皆完成並部署驗證通過，正式結案。**
 
-下一步：開 Sprint 19 DOR（依既定順序推進 E5-F2：日常回報與症狀事件模組）。
+**E5-F2 日常回報與症狀事件模組完成（2026-07-19，Sprint 19，Feature 16/20）**：銜接 E5-F1，補上執行期間的日常追蹤（`check_ins`）與症狀事件回報（`symptom_events`）。核心設計：「不良反應暫停鏈」採**使用者明確標記，非系統自動判斷嚴重度**（A105）——`isAdverseEvent` 完全由使用者手動設定，設為 `true` 時立即呼叫 E5-F1 已預留的 `stopPlan(planId, "adverse_event")`（A90），系統不對症狀描述做語意分析自動判定。「因不良反應停止的計畫不得自動重新啟用」已由既有狀態機邏輯滿足（A106），本輪僅補回歸測試確認。`check_ins.value` 採自由文字非強制 numeric（A103）；`symptom_events` 本輪不提供 DELETE，只能補充或轉換狀態（A107）；`pausePlan`／`resumePlan`／`updatePlan` 於計畫因不良反應停止時，錯誤碼精緻化為上游 §24 逐字定義的 `PLAN_ADVERSE_EVENT`（A110）。UI 併入既有 `/projects/[id]/plans` 計畫詳情面板（A108）。全專案 164 個測試（+9）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整操作驗證通過，包含核心情境：症狀事件回溯標記為不良反應後，計畫立即轉 `stopped`，UI 正確移除所有可能重新啟用的操作按鈕，驗證用測試帳號與資料已全數清除。**尚待**：PO 確認 commit／push／正式站部署時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 19；之後開 Sprint 20 DOR（依既定順序推進 E5-F3：定期檢討與無改善分類模組）。
 
 ## 16. 相關文件索引
 

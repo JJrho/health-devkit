@@ -1,6 +1,6 @@
 export { findOwnedPlan } from "./access";
 export type { PlanRow } from "./access";
-export type { ActionRow, MetricRow } from "./service";
+export type { ActionRow, CheckInRow, MetricRow, SymptomEventRow } from "./service";
 export {
   activatePlan,
   addAction,
@@ -29,3 +29,11 @@ export type {
 } from "./service";
 export { checkPlanSafetyInfo, METRIC_CATEGORIES } from "./safety";
 export type { MetricCategory, SafetyCheckResult } from "./safety";
+export { createCheckIn, deleteCheckIn, updateCheckIn } from "./check-ins";
+export type { CreateCheckInInput, CreateCheckInResult, CheckInMutationResult } from "./check-ins";
+export { createSymptomEvent, updateSymptomEvent } from "./symptom-events";
+export type {
+  CreateSymptomEventInput,
+  CreateSymptomEventResult,
+  UpdateSymptomEventResult,
+} from "./symptom-events";

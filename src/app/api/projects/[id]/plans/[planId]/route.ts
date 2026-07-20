@@ -9,6 +9,7 @@ type Context = { params: Promise<{ id: string; planId: string }> };
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "找不到這個行動計畫。",
   INVALID_REQUEST: "此計畫目前狀態無法編輯（已停止或已封存）。",
+  PLAN_ADVERSE_EVENT: "已暫停相關行動，請先處理不舒服事件",
 };
 
 function denyAccess(requestId: string, userId: string, projectId: string, path: string, method: string) {
@@ -31,7 +32,16 @@ export const GET = withErrorEnvelope<Context>(async (request, requestId, context
   }
 
   return attachSlidingCookie(
-    apiOk({ plan: result.plan, actions: result.actions, metrics: result.metrics }, requestId),
+    apiOk(
+      {
+        plan: result.plan,
+        actions: result.actions,
+        metrics: result.metrics,
+        checkIns: result.checkIns,
+        symptomEvents: result.symptomEvents,
+      },
+      requestId,
+    ),
     auth,
   );
 });
@@ -72,7 +82,7 @@ export const PATCH = withErrorEnvelope<Context>(async (request, requestId, conte
     if (result.code === "PROJECT_ACCESS_DENIED") {
       return denyAccess(requestId, auth.userId, id, request.nextUrl.pathname, "PATCH");
     }
-    const status = result.code === "INVALID_REQUEST" ? 409 : 404;
+    const status = result.code === "INVALID_REQUEST" || result.code === "PLAN_ADVERSE_EVENT" ? 409 : 404;
     return apiError(result.code, ERROR_MESSAGES[result.code] ?? "更新失敗", status, requestId);
   }
 

@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { interventionActions, interventionPlans, trackingMetrics } from "@/db/schema";
+import { checkIns, interventionActions, interventionPlans, symptomEvents, trackingMetrics } from "@/db/schema";
 import { findOwnedProject } from "@/modules/projects";
 import { findOwnedPlan, type PlanRow } from "./access";
 import { checkPlanSafetyInfo, METRIC_CATEGORIES, type MetricCategory } from "./safety";
@@ -9,16 +9,27 @@ type AccessErrorCode = "PROJECT_ACCESS_DENIED" | "NOT_FOUND";
 
 export type ActionRow = typeof interventionActions.$inferSelect;
 export type MetricRow = typeof trackingMetrics.$inferSelect;
+export type CheckInRow = typeof checkIns.$inferSelect;
+export type SymptomEventRow = typeof symptomEvents.$inferSelect;
 
 export type PlanResult = { ok: true; planId: string } | { ok: false; code: AccessErrorCode };
 export type PlanDetailResult =
-  | { ok: true; plan: PlanRow; actions: ActionRow[]; metrics: MetricRow[] }
+  | {
+      ok: true;
+      plan: PlanRow;
+      actions: ActionRow[];
+      metrics: MetricRow[];
+      checkIns: CheckInRow[];
+      symptomEvents: SymptomEventRow[];
+    }
   | { ok: false; code: AccessErrorCode };
 export type ListPlansResult = { ok: true; plans: PlanRow[] } | { ok: false; code: "PROJECT_ACCESS_DENIED" };
-export type MutationResult = { ok: true } | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" };
+export type MutationResult =
+  | { ok: true }
+  | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" | "PLAN_ADVERSE_EVENT" };
 export type UpdatePlanResult =
   | { ok: true; plan: PlanRow }
-  | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" };
+  | { ok: false; code: AccessErrorCode | "INVALID_REQUEST" | "PLAN_ADVERSE_EVENT" };
 
 export type ActivateResult =
   | { ok: true; plan: PlanRow }
@@ -30,6 +41,11 @@ export type SubResourceResult = { ok: true; id: string } | { ok: false; code: Ac
 const EDITABLE_STATUSES = new Set(["draft", "needs_info"]);
 const ADJUSTABLE_STATUSES = new Set(["active", "paused"]);
 const TERMINAL_STATUSES = new Set(["stopped", "archived"]);
+
+/** A110：因不良反應停止的計畫，錯誤碼精緻化為上游 §24 逐字定義的 PLAN_ADVERSE_EVENT。 */
+function isAdverseEventStop(plan: PlanRow): boolean {
+  return plan.status === "stopped" && plan.stopReason === "adverse_event";
+}
 
 export interface CreatePlanInput {
   title: string;
@@ -94,8 +110,20 @@ export async function getPlan(userId: string, projectId: string, planId: string)
     .select()
     .from(trackingMetrics)
     .where(and(eq(trackingMetrics.planId, found.plan.id), isNull(trackingMetrics.deletedAt)));
+  const checkInRows = await db
+    .select()
+    .from(checkIns)
+    .where(and(eq(checkIns.planId, found.plan.id), isNull(checkIns.deletedAt)));
+  const symptomEventRows = await db.select().from(symptomEvents).where(eq(symptomEvents.planId, found.plan.id));
 
-  return { ok: true, plan: found.plan, actions, metrics };
+  return {
+    ok: true,
+    plan: found.plan,
+    actions,
+    metrics,
+    checkIns: checkInRows,
+    symptomEvents: symptomEventRows,
+  };
 }
 
 export interface UpdatePlanInput {
@@ -136,6 +164,7 @@ export async function updatePlan(
     return { ok: true, plan: newPlan };
   }
 
+  if (isAdverseEventStop(plan)) return { ok: false, code: "PLAN_ADVERSE_EVENT" };
   return { ok: false, code: "INVALID_REQUEST" };
 }
 
@@ -259,6 +288,7 @@ export async function activatePlan(
 export async function pausePlan(userId: string, projectId: string, planId: string): Promise<MutationResult> {
   const found = await findOwnedPlan(userId, projectId, planId);
   if (!found.ok) return found;
+  if (isAdverseEventStop(found.plan)) return { ok: false, code: "PLAN_ADVERSE_EVENT" };
   if (found.plan.status !== "active") return { ok: false, code: "INVALID_REQUEST" };
 
   await getDb()
@@ -271,6 +301,7 @@ export async function pausePlan(userId: string, projectId: string, planId: strin
 export async function resumePlan(userId: string, projectId: string, planId: string): Promise<MutationResult> {
   const found = await findOwnedPlan(userId, projectId, planId);
   if (!found.ok) return found;
+  if (isAdverseEventStop(found.plan)) return { ok: false, code: "PLAN_ADVERSE_EVENT" };
   if (found.plan.status !== "paused") return { ok: false, code: "INVALID_REQUEST" };
 
   await getDb()

@@ -30,10 +30,29 @@ interface MetricView {
   description: string | null;
 }
 
+interface CheckInView {
+  id: string;
+  metricId: string;
+  value: string;
+  note: string | null;
+  checkinDate: string;
+  status: string;
+}
+
+interface SymptomEventView {
+  id: string;
+  description: string;
+  occurredAt: string;
+  isAdverseEvent: boolean;
+  status: string;
+}
+
 interface PlanDetail {
   plan: PlanView;
   actions: ActionView[];
   metrics: MetricView[];
+  checkIns: CheckInView[];
+  symptomEvents: SymptomEventView[];
 }
 
 type LoadState = "loading" | "ready" | "unauthorized" | "denied" | "error";
@@ -53,6 +72,13 @@ const METRIC_CATEGORY_LABEL: Record<string, string> = {
   leading: "領先指標",
   outcome: "結果指標",
   safety: "安全指標",
+};
+
+const SYMPTOM_STATUS_LABEL: Record<string, string> = {
+  open: "剛回報",
+  monitoring: "觀察中",
+  resolved: "已解決",
+  escalated: "需要專業評估",
 };
 
 /** E5-F1 Part 2/2（SDD §4.10）：行動計畫頁，已啟用計畫的編輯會建立新版本（A96） */
@@ -224,6 +250,73 @@ export default function PlansPage({ params }: { params: Promise<{ id: string }> 
     await loadDetail(planId);
   }
 
+  async function handleAddCheckIn(
+    planId: string,
+    metricId: string,
+    value: string,
+    checkinDate: string,
+    note: string,
+  ) {
+    if (!metricId || !value.trim() || !checkinDate) return;
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/check-ins`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metricId, value, checkinDate, note: note || undefined }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "記錄日常回報失敗，請再試一次。");
+      return;
+    }
+    await loadDetail(planId);
+  }
+
+  async function handleRemoveCheckIn(planId: string, checkInId: string) {
+    await fetch(`/api/projects/${projectId}/plans/${planId}/check-ins/${checkInId}`, { method: "DELETE" });
+    await loadDetail(planId);
+  }
+
+  async function handleAddSymptomEvent(
+    planId: string,
+    description: string,
+    occurredAt: string,
+    isAdverseEvent: boolean,
+  ) {
+    if (!description.trim() || !occurredAt) return;
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/symptoms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description, occurredAt, isAdverseEvent }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "回報症狀事件失敗，請再試一次。");
+      return;
+    }
+    await refreshAfterChange(planId);
+  }
+
+  async function handleUpdateSymptomEvent(
+    planId: string,
+    symptomEventId: string,
+    input: { status?: string; isAdverseEvent?: boolean },
+  ) {
+    setErrorText("");
+    const response = await fetch(`/api/projects/${projectId}/plans/${planId}/symptoms/${symptomEventId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      setErrorText(data?.error?.message ?? "更新症狀事件失敗，請再試一次。");
+      return;
+    }
+    await refreshAfterChange(planId);
+  }
+
   return (
     <main className="mx-auto min-h-screen max-w-3xl bg-slate-50 p-6">
       <h1 className="mb-6 text-3xl font-bold text-slate-900">行動計畫</h1>
@@ -290,6 +383,16 @@ export default function PlansPage({ params }: { params: Promise<{ id: string }> 
                     onRemoveAction={(actionId) => handleRemoveAction(plan.id, actionId)}
                     onAddMetric={(category, name) => handleAddMetric(plan.id, category, name)}
                     onRemoveMetric={(metricId) => handleRemoveMetric(plan.id, metricId)}
+                    onAddCheckIn={(metricId, value, checkinDate, note) =>
+                      handleAddCheckIn(plan.id, metricId, value, checkinDate, note)
+                    }
+                    onRemoveCheckIn={(checkInId) => handleRemoveCheckIn(plan.id, checkInId)}
+                    onAddSymptomEvent={(description, occurredAt, isAdverseEvent) =>
+                      handleAddSymptomEvent(plan.id, description, occurredAt, isAdverseEvent)
+                    }
+                    onUpdateSymptomEvent={(symptomEventId, input) =>
+                      handleUpdateSymptomEvent(plan.id, symptomEventId, input)
+                    }
                   />
                 )}
               </section>
@@ -322,6 +425,10 @@ function PlanDetailPanel({
   onRemoveAction,
   onAddMetric,
   onRemoveMetric,
+  onAddCheckIn,
+  onRemoveCheckIn,
+  onAddSymptomEvent,
+  onUpdateSymptomEvent,
 }: {
   detail: PlanDetail | null;
   onActivate: () => void;
@@ -341,18 +448,30 @@ function PlanDetailPanel({
   onRemoveAction: (actionId: string) => void;
   onAddMetric: (category: string, name: string) => void;
   onRemoveMetric: (metricId: string) => void;
+  onAddCheckIn: (metricId: string, value: string, checkinDate: string, note: string) => void;
+  onRemoveCheckIn: (checkInId: string) => void;
+  onAddSymptomEvent: (description: string, occurredAt: string, isAdverseEvent: boolean) => void;
+  onUpdateSymptomEvent: (symptomEventId: string, input: { status?: string; isAdverseEvent?: boolean }) => void;
 }) {
   const [showEditForm, setShowEditForm] = useState(false);
   const [actionDescription, setActionDescription] = useState("");
   const [actionCategory, setActionCategory] = useState("");
   const [metricCategory, setMetricCategory] = useState("leading");
   const [metricName, setMetricName] = useState("");
+  const [checkInMetricId, setCheckInMetricId] = useState("");
+  const [checkInValue, setCheckInValue] = useState("");
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkInNote, setCheckInNote] = useState("");
+  const [symptomDescription, setSymptomDescription] = useState("");
+  const [symptomOccurredAt, setSymptomOccurredAt] = useState("");
+  const [symptomIsAdverseEvent, setSymptomIsAdverseEvent] = useState(false);
 
   if (!detail) return <p className="mt-4 text-base text-slate-600">載入中…</p>;
 
-  const { plan, actions, metrics } = detail;
+  const { plan, actions, metrics, checkIns, symptomEvents } = detail;
   const isEditable = plan.status === "draft" || plan.status === "needs_info";
   const isAdjustable = plan.status === "active" || plan.status === "paused";
+  const isExecutable = plan.status === "active" || plan.status === "paused";
 
   return (
     <div className="mt-4 flex flex-col gap-4 border-t border-slate-200 pt-4">
@@ -492,6 +611,204 @@ function PlanDetailPanel({
             新增指標
           </button>
         </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-lg font-semibold text-slate-900">日常回報</h3>
+        {checkIns.length === 0 ? (
+          <p className="text-base text-slate-600">尚未記錄任何日常回報。</p>
+        ) : (
+          <ul className="mb-2 flex flex-col gap-1">
+            {checkIns.map((c) => {
+              const metric = metrics.find((m) => m.id === c.metricId);
+              return (
+                <li key={c.id} className="flex items-center justify-between text-base text-slate-700">
+                  <span>
+                    {c.checkinDate.slice(0, 10)}　{metric?.name ?? "（指標已刪除）"}：{c.value}
+                    {c.note && <span className="text-slate-500">（{c.note}）</span>}
+                    {c.status === "corrected" && <span className="text-slate-500">（已更正）</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveCheckIn(c.id)}
+                    className="text-sm font-semibold text-slate-600 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                  >
+                    刪除
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {isExecutable && metrics.length > 0 ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block text-sm text-slate-700" htmlFor={`checkin-metric-${plan.id}`}>
+                指標
+              </label>
+              <select
+                id={`checkin-metric-${plan.id}`}
+                value={checkInMetricId}
+                onChange={(e) => setCheckInMetricId(e.target.value)}
+                className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+              >
+                <option value="">請選擇</option>
+                {metrics.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-slate-700" htmlFor={`checkin-date-${plan.id}`}>
+                日期
+              </label>
+              <input
+                id={`checkin-date-${plan.id}`}
+                type="date"
+                value={checkInDate}
+                onChange={(e) => setCheckInDate(e.target.value)}
+                className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+              />
+            </div>
+            <input
+              value={checkInValue}
+              onChange={(e) => setCheckInValue(e.target.value)}
+              placeholder="數值／狀況"
+              className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+            />
+            <input
+              value={checkInNote}
+              onChange={(e) => setCheckInNote(e.target.value)}
+              placeholder="備註（可留空）"
+              className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onAddCheckIn(checkInMetricId, checkInValue, checkInDate, checkInNote);
+                setCheckInValue("");
+                setCheckInNote("");
+              }}
+              className="rounded-lg bg-slate-700 px-3 py-2 text-base font-semibold text-white focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              新增回報
+            </button>
+          </div>
+        ) : (
+          isExecutable && <p className="text-sm text-slate-500">請先新增指標才能記錄日常回報。</p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-lg font-semibold text-slate-900">症狀事件</h3>
+        {symptomEvents.length === 0 ? (
+          <p className="text-base text-slate-600">尚未回報任何症狀事件。</p>
+        ) : (
+          <ul className="mb-2 flex flex-col gap-2">
+            {symptomEvents.map((s) => (
+              <li key={s.id} className="rounded-lg border border-slate-200 p-3 text-base text-slate-700">
+                <p>
+                  {s.occurredAt.slice(0, 10)}　{s.description}
+                  {s.isAdverseEvent && (
+                    <span className="ml-2 rounded-full border-2 border-red-600 px-2 py-0.5 text-sm font-semibold text-red-700">
+                      不良反應
+                    </span>
+                  )}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-slate-600">
+                    狀態：{SYMPTOM_STATUS_LABEL[s.status] ?? s.status}
+                  </span>
+                  {s.status !== "resolved" && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSymptomEvent(s.id, { status: "monitoring" })}
+                      className="text-sm font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      標記觀察中
+                    </button>
+                  )}
+                  {s.status !== "resolved" && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSymptomEvent(s.id, { status: "resolved" })}
+                      className="text-sm font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      標記已解決
+                    </button>
+                  )}
+                  {s.status !== "escalated" && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSymptomEvent(s.id, { status: "escalated" })}
+                      className="text-sm font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      標記需要專業評估
+                    </button>
+                  )}
+                  {!s.isAdverseEvent && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSymptomEvent(s.id, { isAdverseEvent: true })}
+                      className="text-sm font-semibold text-red-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+                    >
+                      回溯標記為不良反應（將暫停計畫）
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {isExecutable && (
+          <div className="flex flex-col gap-2">
+            <label className="sr-only" htmlFor={`symptom-desc-${plan.id}`}>
+              症狀描述
+            </label>
+            <textarea
+              id={`symptom-desc-${plan.id}`}
+              value={symptomDescription}
+              onChange={(e) => setSymptomDescription(e.target.value)}
+              placeholder="描述你的症狀"
+              rows={2}
+              className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-sm text-slate-700" htmlFor={`symptom-date-${plan.id}`}>
+                發生時間
+              </label>
+              <input
+                id={`symptom-date-${plan.id}`}
+                type="date"
+                value={symptomOccurredAt}
+                onChange={(e) => setSymptomOccurredAt(e.target.value)}
+                className="rounded-lg border border-slate-300 p-2 text-base focus:outline-none focus:ring-4 focus:ring-blue-200"
+              />
+              <label className="flex items-center gap-2 text-base text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={symptomIsAdverseEvent}
+                  onChange={(e) => setSymptomIsAdverseEvent(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                這是不良反應，需要暫停計畫
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  onAddSymptomEvent(symptomDescription, symptomOccurredAt, symptomIsAdverseEvent);
+                  setSymptomDescription("");
+                  setSymptomIsAdverseEvent(false);
+                }}
+                className="rounded-lg bg-slate-700 px-3 py-2 text-base font-semibold text-white focus:outline-none focus:ring-4 focus:ring-blue-200"
+              >
+                回報症狀
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3">
