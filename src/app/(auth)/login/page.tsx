@@ -5,9 +5,11 @@ import Link from "next/link";
 import {
   AuthCard,
   FormMessage,
+  GoogleButton,
   SubmitButton,
   TextField,
 } from "@/components/auth/auth-ui";
+import { startGoogleLogin } from "@/lib/google-auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -55,6 +57,7 @@ export default function LoginPage() {
           前往我的健康專案
         </Link>
       )}
+      <GoogleButton onClick={() => startGoogleLogin()} disabled={pending} />
       <form onSubmit={handleSubmit} noValidate>
         <TextField
           id="email"

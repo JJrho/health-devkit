@@ -22,5 +22,5 @@ export function getAuthService(): AuthService {
 }
 
 export { AuthService, CONSENT_VERSION } from "./service";
-export type { RegisterResult, LoginResult } from "./service";
+export type { RegisterResult, LoginResult, GoogleLoginResult } from "./service";
 export { SESSION_CONFIG, validateSession } from "./session";

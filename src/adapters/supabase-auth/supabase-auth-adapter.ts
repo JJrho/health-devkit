@@ -89,4 +89,22 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       emailVerified: Boolean(data.user.email_confirmed_at),
     };
   }
+
+  /**
+   * A124：驗證 Google 登入核發的 access_token 改用 anon.auth.getUser(token)
+   * （帶使用者自己的 JWT 呼叫 /auth/v1/user），刻意不用 Admin API——本專案
+   * service_role 為新版不透明金鑰格式，已知不被 Admin API 接受（見 getUserById
+   * 註解與 KB-009／KB-012），anon 端點不受此限制，且為官方標準驗證流程。
+   */
+  async verifyGoogleToken(
+    accessToken: string,
+  ): Promise<{ userId: string; email: string; emailVerified: boolean } | "AUTH_GOOGLE_FAILED"> {
+    const { data, error } = await this.anon.auth.getUser(accessToken);
+    if (error || !data.user?.email) return "AUTH_GOOGLE_FAILED";
+    return {
+      userId: data.user.id,
+      email: data.user.email,
+      emailVerified: Boolean(data.user.email_confirmed_at),
+    };
+  }
 }

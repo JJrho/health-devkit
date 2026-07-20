@@ -162,7 +162,9 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E5-F3 定期檢討與無改善分類模組完成，正式結案（2026-07-20，Sprint 20，Feature 17/20）**：銜接 E5-F2，補上定期檢討（十分類，上游 §9.3）與專業轉介摘要。核心設計：不落地 `review_due` 狀態，改以計算式判斷是否達檢討日（A113，本專案尚無日期觸發排程子系統）；`classification` 為十分類白名單，UI 下拉選單非自由文字（A114）；十分類結果僅觸發狀態標記（「計畫可能無效」→`ineffective`、「需要專業評估」→`escalated`、「出現不良反應」→比照 A105 呼叫 `stopPlan()`，其餘七類維持原狀態），系統從未自動調整行動、指標或強度（A115，落實憲法 §3）；`ineffective`／`escalated` 可透過既有版本鏈調整回到 `active`（A116，`ADJUSTABLE_STATUSES` 擴充）；已完成的檢討不可覆寫（A112）；轉介摘要為伺服器端純結構化聚合，不經 LLM 生成，僅在已有需要專業評估的檢討時可產生（A118／A119）。UI 併入既有 `/projects/[id]/plans` 計畫詳情面板（A120）。全專案 178 個測試（+14）／typecheck／lint／`pnpm build` 全綠。已 commit（`dab827e`）＋push＋**正式站部署驗證通過**：web／worker 兩 service 皆 `RUNNING`、`/api/health` 200；用 Admin API 建立正式站測試帳號，真實瀏覽器對正式站完整操作驗證——建立計畫（檢討日設為過去日期）並補齊安全欄位與三分類指標後啟用→開始檢討，十分類下拉選單正確列出十個上游 §9.3 選項→選擇「需要專業評估」送出，確認伺服器回應計畫轉 `escalated`→產生轉介摘要（純結構化聚合，無 LLM 痕跡）→狀態轉換 `draft→ready→exported`→調整（版本鏈）成功轉回 `active`，確認 A116 在正式站成立→另以頁面內 `fetch` 對已完成的檢討直接呼叫 `PATCH`，回應 409 `INVALID_REQUEST`，確認 A112 在正式站 API 層級亦成立，驗證用測試帳號與資料已全數清除。
 
-下一步：開 Sprint 21 DOR（依既定順序推進 E1-F3：Google 登入）。
+**E1-F3 Google 登入與帳號連結模組完成（2026-07-20，Sprint 21，Feature 18/20）**：補上第二種登入方式。核心設計：走 Supabase Auth 內建 OAuth 供應商代理，非自架 OAuth client（A121）；瀏覽器端導向流程——`signInWithOAuth()` 導向 Google→回 `/auth/callback`→取得 `access_token`→POST `/api/auth/google` 由伺服器驗證並建立本系統自有 session（A122）；Google 失敗（token 驗證失敗或新帳號未附同意條款）不建立半完成帳號，逐字落實上游 §28.1（A123）；伺服器端驗證 access_token 改用 `anon.auth.getUser()`，不用 Admin API（本專案 `service_role` 為新版不透明金鑰格式，已知不被 Admin API 接受，見 KB-009／KB-012，A124）；同意條款把關集中於註冊頁，登入頁按鈕不顯示勾選框，全新帳號經登入頁嘗試時回 `CONSENT_REQUIRED`（A125）。全專案 184 個測試（+7）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整操作驗證通過，含對真實 Supabase 實例送出偽造 token 確認 `AUTH_GOOGLE_FAILED` 正確觸發、OAuth 導向 URL 參數正確組裝。**尚待**：PO 於 Supabase Dashboard 啟用 Google Provider（sprints/sprint-21-dor.md §0）後，才能做真實 Google 帳號的端到端登入驗證；commit／push／正式站部署驗證亦待 PO 確認時機。
+
+下一步：commit／push／正式站部署驗證 Sprint 21（部署後仍需 PO 完成 Google OAuth 外部設定才能做真實帳號端到端驗證）；設定完成並驗證通過後開 Sprint 22 DOR（依既定順序推進 E5-F4：看診摘要與資料匯出模組）。
 
 ## 16. 相關文件索引
 

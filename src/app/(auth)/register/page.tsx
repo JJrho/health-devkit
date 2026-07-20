@@ -5,9 +5,11 @@ import {
   AuthCard,
   CheckboxField,
   FormMessage,
+  GoogleButton,
   SubmitButton,
   TextField,
 } from "@/components/auth/auth-ui";
+import { startGoogleLogin } from "@/lib/google-auth";
 
 /** 佔位條款（A10：未經法律審查之預覽版；正式版經審查後換入並遞增 consent 版本） */
 const PLACEHOLDER_TERMS = `【預覽版條款——尚未經法律審查】
@@ -24,6 +26,18 @@ export default function RegisterPage() {
   const [age18, setAge18] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "success" | null; text: string }>({ kind: null, text: "" });
+
+  async function handleGoogleClick() {
+    if (!agreeTerms || !age18 || pending) return;
+    setPending(true);
+    setMessage({ kind: null, text: "" });
+    try {
+      await startGoogleLogin({ agreeTermsAndDisclaimer: agreeTerms, declareAge18: age18 });
+    } catch {
+      setMessage({ kind: "error", text: "連線發生問題，請確認網路後再試一次。" });
+      setPending(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -101,6 +115,8 @@ export default function RegisterPage() {
         />
         <SubmitButton pending={pending}>建立帳號</SubmitButton>
       </form>
+      <p className="mt-2 mb-2 text-center text-base text-slate-600">或</p>
+      <GoogleButton onClick={handleGoogleClick} disabled={pending || !agreeTerms || !age18} />
       <p className="mt-6 text-lg text-slate-700">
         已經有帳號了？{" "}
         <a href="/login" className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200">

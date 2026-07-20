@@ -16,10 +16,23 @@ const hasDb = Boolean(process.env.DATABASE_URL);
 /** 假 AuthAdapter：記憶體帳號庫 */
 class FakeAuthAdapter implements AuthAdapter {
   private accounts = new Map<string, { userId: string; password: string; verified: boolean }>();
+  /** E1-F3：假 Google token → 使用者身分對照表 */
+  private googleTokens = new Map<string, { userId: string; email: string; emailVerified: boolean }>();
 
   seed(email: string, password: string, verified: boolean): string {
     const userId = randomUUID();
     this.accounts.set(email, { userId, password, verified });
+    return userId;
+  }
+
+  /** 註冊一個「Google 會核發此 token」的假身分；userId 可留空自動產生 */
+  seedGoogleToken(
+    token: string,
+    email: string,
+    emailVerified: boolean,
+    userId: string = randomUUID(),
+  ): string {
+    this.googleTokens.set(token, { userId, email, emailVerified });
     return userId;
   }
 
@@ -37,6 +50,12 @@ class FakeAuthAdapter implements AuthAdapter {
   async sendPasswordReset(): Promise<void> {}
   async getUserById(): Promise<AuthUser | null> {
     return null;
+  }
+
+  async verifyGoogleToken(accessToken: string) {
+    const identity = this.googleTokens.get(accessToken);
+    if (!identity) return "AUTH_GOOGLE_FAILED" as const;
+    return identity;
   }
 }
 
@@ -176,6 +195,100 @@ describe.skipIf(!hasDb)("AuthService（整合，需 DATABASE_URL）", () => {
     const allOutput = spy.mock.calls.map((call) => String(call[0])).join("\n");
     expect(allOutput).not.toContain(email);
     expect(allOutput).not.toContain(password);
+    spy.mockRestore();
+  });
+
+  // E1-F3：Google 登入（AC-1～AC-7；AC-8 UI 僅瀏覽器驗證，見 SPRINT_LOG）
+  it("E1-F3 AC-1：首次 Google 登入且已附同意條款 → 成功建立 users＋consent＋session", async () => {
+    const email = `google-new-${Date.now()}@test.invalid`;
+    const token = `fake-google-token-${randomUUID()}`;
+    const userId = adapter.seedGoogleToken(token, email, true);
+
+    const result = await service.loginWithGoogle({
+      accessToken: token,
+      agreeTermsAndDisclaimer: true,
+      declareAge18: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.emailVerified).toBe(true);
+
+    const rows = await getDb().select().from(users).where(eq(users.id, userId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.email).toBe(email);
+
+    const consents = await getDb().select().from(consentRecords).where(eq(consentRecords.userId, userId));
+    expect(consents).toHaveLength(2);
+
+    expect(await validateSession(result.token)).not.toBeNull();
+  });
+
+  it("E1-F3 AC-2：首次 Google 登入但未附同意條款 → CONSENT_REQUIRED，不建任何列", async () => {
+    const email = `google-noconsent-${Date.now()}@test.invalid`;
+    const token = `fake-google-token-${randomUUID()}`;
+    const userId = adapter.seedGoogleToken(token, email, true);
+
+    const result = await service.loginWithGoogle({ accessToken: token });
+    expect(result).toEqual({ ok: false, code: "CONSENT_REQUIRED" });
+
+    const rows = await getDb().select().from(users).where(eq(users.id, userId));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("E1-F3 AC-3：既有帳號（先前 Email／密碼註冊）改用相同身分的 Google 登入 → 同一 userId，不重複建帳號", async () => {
+    const email = `google-existing-${Date.now()}@test.invalid`;
+    const passwordUserId = adapter.seed(email, "password123", true);
+    await getDb().insert(users).values({ id: passwordUserId, email, emailVerified: true });
+
+    const token = `fake-google-token-${randomUUID()}`;
+    adapter.seedGoogleToken(token, email, true, passwordUserId);
+
+    const result = await service.loginWithGoogle({ accessToken: token });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const rows = await getDb().select().from(users).where(eq(users.email, email));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(passwordUserId);
+  });
+
+  it("E1-F3 AC-4：偽造或不存在的 access_token → AUTH_GOOGLE_FAILED，不建任何資料", async () => {
+    const result = await service.loginWithGoogle({ accessToken: "not-a-real-token" });
+    expect(result).toEqual({ ok: false, code: "AUTH_GOOGLE_FAILED" });
+  });
+
+  it("E1-F3 AC-6：Google 登入建立的 session 可正常登出撤銷（回歸確認，沿用既有 revokeSession）", async () => {
+    const email = `google-logout-${Date.now()}@test.invalid`;
+    const token = `fake-google-token-${randomUUID()}`;
+    adapter.seedGoogleToken(token, email, true);
+
+    const result = await service.loginWithGoogle({
+      accessToken: token,
+      agreeTermsAndDisclaimer: true,
+      declareAge18: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    await service.logout(result.token);
+    expect(await validateSession(result.token)).toBeNull();
+  });
+
+  it("E1-F3 AC-7：Google 登入過程日誌不含 access_token／Email", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const email = `google-logsafe-${Date.now()}@test.invalid`;
+    const token = `fake-google-token-${randomUUID()}`;
+    adapter.seedGoogleToken(token, email, true);
+
+    await service.loginWithGoogle({
+      accessToken: token,
+      agreeTermsAndDisclaimer: true,
+      declareAge18: true,
+    });
+
+    const allOutput = spy.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(allOutput).not.toContain(token);
+    expect(allOutput).not.toContain(email);
     spy.mockRestore();
   });
 });

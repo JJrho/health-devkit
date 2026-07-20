@@ -31,6 +31,10 @@ export type LoginResult =
   | { ok: true; token: string; expiresAt: Date; emailVerified: boolean }
   | { ok: false; code: "AUTH_LOCKED" | "AUTH_INVALID_CREDENTIALS" };
 
+export type GoogleLoginResult =
+  | { ok: true; token: string; expiresAt: Date; emailVerified: boolean }
+  | { ok: false; code: "AUTH_GOOGLE_FAILED" | "CONSENT_REQUIRED" };
+
 /**
  * Auth 領域服務（E1-F2）。
  * AuthAdapter 以建構子注入——測試用假實作，正式用 Supabase（憲法 §1）。
@@ -96,6 +100,53 @@ export class AuthService {
 
     await this.saveThrottle(email, onSuccess(now));
     await this.syncUserVerification(verified.userId, email, verified.emailVerified);
+    const session = await createSession(verified.userId);
+    return {
+      ok: true,
+      token: session.token,
+      expiresAt: session.expiresAt,
+      emailVerified: verified.emailVerified,
+    };
+  }
+
+  /**
+   * E1-F3：Google 登入（經 Supabase Auth OAuth 代理核發的 access_token）。
+   * 既有帳號（本地 users 已有此 id）→ 比照 login() 建立 session；
+   * 全新帳號 → 需已隨請求附上同意條款勾選（A125），否則 CONSENT_REQUIRED，
+   * 任一情況失敗皆不寫入 users／consent_records／sessions（A123）。
+   */
+  async loginWithGoogle(input: {
+    accessToken: string;
+    agreeTermsAndDisclaimer?: boolean;
+    declareAge18?: boolean;
+  }): Promise<GoogleLoginResult> {
+    const verified = await this.adapter.verifyGoogleToken(input.accessToken);
+    if (verified === "AUTH_GOOGLE_FAILED") return { ok: false, code: "AUTH_GOOGLE_FAILED" };
+
+    const db = getDb();
+    const existing = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, verified.userId))
+      .limit(1);
+
+    if (!existing[0]) {
+      if (!input.agreeTermsAndDisclaimer || !input.declareAge18) {
+        return { ok: false, code: "CONSENT_REQUIRED" };
+      }
+      await db.insert(users).values({
+        id: verified.userId,
+        email: verified.email,
+        emailVerified: verified.emailVerified,
+      });
+      await db.insert(consentRecords).values([
+        { userId: verified.userId, consentType: "terms-and-disclaimer", version: CONSENT_VERSION },
+        { userId: verified.userId, consentType: "age-18", version: CONSENT_VERSION },
+      ]);
+    } else {
+      await this.syncUserVerification(verified.userId, verified.email, verified.emailVerified);
+    }
+
     const session = await createSession(verified.userId);
     return {
       ok: true,

@@ -113,6 +113,25 @@ export function SubmitButton({ pending, children }: { pending: boolean; children
   );
 }
 
+export function GoogleButton({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="mb-5 flex w-full items-center justify-center gap-3 rounded-lg border-2 border-slate-400 bg-white px-6 py-4 text-xl font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:cursor-not-allowed disabled:text-slate-400"
+    >
+      使用 Google 登入
+    </button>
+  );
+}
+
 export function FormMessage({ kind, text }: { kind: "error" | "success" | null; text: string }) {
   if (!kind) return null;
   // aria-live：訊息更新時螢幕閱讀器會朗讀；圖示＋文字，不只靠顏色

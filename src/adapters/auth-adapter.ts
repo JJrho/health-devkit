@@ -34,6 +34,15 @@ export interface AuthAdapter {
 
   /** 讀取使用者目前狀態（email 驗證與否等） */
   getUserById(userId: string): Promise<AuthUser | null>;
+
+  /**
+   * E1-F3：驗證 Google 登入（經 Supabase Auth OAuth 代理）核發的 access_token，
+   * 回傳其代表的使用者身分。Token 無效／過期時回 "AUTH_GOOGLE_FAILED"（A123：
+   * 不得建立半完成帳號，呼叫端據此直接中止，不寫入任何列）。
+   */
+  verifyGoogleToken(
+    accessToken: string,
+  ): Promise<{ userId: string; email: string; emailVerified: boolean } | "AUTH_GOOGLE_FAILED">;
 }
 
 export interface AuthUser {
