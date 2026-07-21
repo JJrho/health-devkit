@@ -1,4 +1,5 @@
 import type { ClaimedJob } from "@/adapters";
+import { permanentlyDeleteAccount } from "@/modules/account/deletion";
 import { getStorageAdapter } from "@/modules/documents";
 import { runExtraction } from "@/modules/extraction";
 import { standardizeDocument } from "@/modules/observations";
@@ -26,5 +27,11 @@ export const jobHandlers: Record<string, JobHandler> = {
     const documentId = job.payload.documentId;
     if (typeof documentId !== "string") throw new Error("payload 缺少 documentId");
     await standardizeDocument(documentId);
+  },
+  /** E6-F1（C10）：三十日冷靜期到期執行，A136 防競態檢查於函式內部進行 */
+  "delete-account": async (job) => {
+    const userId = job.payload.userId;
+    if (typeof userId !== "string") throw new Error("payload 缺少 userId");
+    await permanentlyDeleteAccount(getStorageAdapter(), userId);
   },
 };

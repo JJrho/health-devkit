@@ -22,7 +22,9 @@ export const users = pgTable("users", {
   version: integer("version").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }), // 刪除鏈於 E6-F1（C10）
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // 保留欄位，本輪刪除鏈採硬刪除未使用（見 E6-F1 DOR）
+  // E6-F1（C10）：非 null 代表帳號正處於 30 天刪除寬限期；期間帳號功能不受限制，可隨時撤銷
+  deletionRequestedAt: timestamp("deletion_requested_at", { withTimezone: true }),
 });
 
 /** 應用層 session（A9：7 天滑動效期，C8）；cookie 只存原始 token，DB 只存雜湊 */

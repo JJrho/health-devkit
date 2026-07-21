@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { projects } from "@/db/schema";
 import { logger } from "@/lib/logger";
+import { recordAuditEventAsync } from "@/modules/audit";
 
 export type ProjectRow = typeof projects.$inferSelect;
 
@@ -26,8 +27,10 @@ export async function findOwnedProject(
 }
 
 /**
- * AC-6（TDD P0 種子）：跨帳號存取一律記錄。過渡期作法（A11，sprints/sprint-04-dor.md）：
- * 以 logger.warn 記結構化識別碼欄位（皆非健康內容），正式 audit_events 表待 E6-F1。
+ * AC-6（TDD P0 種子）：跨帳號存取一律記錄。以 logger.warn 記結構化識別碼欄位
+ * （皆非健康內容）供即時可觀測性，並同步寫入正式 audit_events 表（E6-F1，
+ * 取代 A11 過渡期單純 logger 的作法）；稽核落地為 fire-and-forget，寫入失敗
+ * 不影響原始存取遭拒回應。
  */
 export function auditAccessDenied(fields: {
   requestId: string;
@@ -43,5 +46,11 @@ export function auditAccessDenied(fields: {
     path: fields.path,
     method: fields.method,
     status: "PROJECT_ACCESS_DENIED",
+  });
+  recordAuditEventAsync(fields.userId, "project_access_denied", {
+    requestId: fields.requestId,
+    projectId: fields.projectId,
+    path: fields.path,
+    method: fields.method,
   });
 }

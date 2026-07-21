@@ -22,3 +22,4 @@ export { checkIns } from "./check-ins";
 export { symptomEvents } from "./symptom-events";
 export { planReviews } from "./plan-reviews";
 export { escalationSummaries } from "./escalation-summaries";
+export { auditEvents } from "./audit-events";

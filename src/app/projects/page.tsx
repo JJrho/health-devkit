@@ -50,7 +50,15 @@ export default function ProjectsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl bg-slate-50 p-6">
-      <h1 className="mb-6 text-3xl font-bold text-slate-900">我的健康專案</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-slate-900">我的健康專案</h1>
+        <Link
+          href="/account"
+          className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+        >
+          帳號設定
+        </Link>
+      </div>
 
       {loadState === "loading" && <p className="text-lg text-slate-700">載入中…</p>}
 

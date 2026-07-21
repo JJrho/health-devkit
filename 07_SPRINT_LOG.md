@@ -1,6 +1,43 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 22 已 commit（`96ea2ec`）／push／正式站部署驗證通過（2026-07-22）——**E5-F4：看診摘要與資料匯出模組（C19/C20），正式結案，E5 健康行動閉環全數完成（4/4）**。看診摘要與資料匯出皆已用正式站真實測試帳號完整驗證，含銜接 E5-F3 轉介摘要的核心情境。
+> 目前狀態：Sprint 23（E6-F1：稽核事件與刪除鏈模組）實作＋測試＋本機瀏覽器驗證完成，尚未 commit（2026-07-22）。DOR 已通過（A135–A141 由 PO 追認）。
+
+## Sprint 23 — E6-F1：稽核事件與刪除鏈模組（C10 三十日寬限／Storage 清理）✅ 實作＋測試＋本機瀏覽器驗證完成，待 commit／push／正式站部署驗證
+
+- 期間：2026-07-22（單日完成）
+- DOR：✅ 通過（sprints/sprint-23-dor.md；A135–A141 由 PO 追認）
+- 目標：E6（稽核基座與交付驗證包）第一個 Feature——補上正式 `audit_events` 稽核表（取代 A11 過渡期 `logger.warn` 作法），以及帳號刪除的三十日冷靜期申請／撤銷／到期永久刪除鏈（含 Storage 真刪除）。
+
+### 根因／設計要點
+- **三十日冷靜期重用既有 `QueueAdapter.enqueue()` 的 `runAt` 延遲排程機制，不新增排程基礎設施**（A135）：`PgQueueAdapter.claimNext()` 的 `WHERE run_at <= now()` 邏輯自 Sprint 1 起就存在，本輪是第一次真正用於長延遲（30 天）排程。
+- **撤銷申請不直接操作已排入的 `queue_jobs` 列**（A136）：改由 `permanentlyDeleteAccount()` 執行前重新查一次 `users.deletionRequestedAt` 是否仍非空，為空即跳過，防止撤銷與背景工作執行間的競態。
+- **本輪範圍限定帳號層級**（A137）：既有 E1-F4 專案層級立即軟刪除＋可還原機制維持不變，不 retrofit 三十日寬限。
+- **`audit_events.userId` 不設外鍵**（A138）：稽核紀錄須在帳號永久刪除後仍可查詢追溯。
+- **正式永久刪除的 FK 刪除順序泛化自 `tests/unit/helpers/cleanup-test-data.ts`**（A139，該邏輯歷經 Sprint 4–22 反覆驗證）：新增 Storage 物件真刪除步驟（測試輔助函式原本不做）。**實作中額外發現並修正一項該測試輔助函式本身遺漏、正式路徑不可忽略的缺口**——`consent_records` 對 `users` 的外鍵為 `ON DELETE no action`，若不在刪除 `users` 本列前先清空 `consent_records`，正式帳號（凡走過 `register()`／`loginWithGoogle()` 皆會有 `consent_records`）永久刪除會直接因外鍵違反而失敗；`cleanupTestData()` 至今未踩到此坑純粹是因為多數測試直接 `db.insert(users)` 造測試帳號、略過 `consent_records`。本輪 `permanentlyDeleteAccount()` 已補上此步驟，`cleanupTestData()` 本身暫不動（超出本輪範圍，非阻塞）。
+- **本輪不建置管理者／後台介面**（A140）：本專案目前無此類功能面向。
+- **刪除確認採二次確認按鈕，不要求重新輸入密碼**（A141）：操作已受登入 session 保護，且三十日寬限期可隨時撤銷。
+- **既有 `auditAccessDenied()` 擴充為同時寫入 `audit_events` 表**：`logger.warn` 保留作即時可觀測性補充，非取代；稽核落地採 fire-and-forget，寫入失敗不影響原始存取遭拒回應。
+
+### 驗收結果（AC-1～AC-8／AC-10；AC-9 為 UI，另計瀏覽器驗證）
+| AC | 結果 |
+|---|---|
+| AC-1（申請刪除成功） | ✅ 整合測試＋瀏覽器驗證：`deletionRequestedAt` 設定，稽核事件寫入，背景工作以 `runAt≈+30天` 排入 |
+| AC-2（撤銷申請成功） | ✅ 整合測試＋瀏覽器驗證：`deletionRequestedAt` 清空，稽核事件寫入 |
+| AC-3（背景工作到期執行，真刪除） | ✅ 整合測試（以直接呼叫 `permanentlyDeleteAccount()` 模擬到期，非真實等待 30 天，見下方誠實記錄）：帳號名下專案／文件／對話等從屬資料與 `users` 本列皆確實刪除 |
+| AC-4（撤銷後不誤刪，防競態） | ✅ 整合測試：撤銷後即使重新呼叫背景工作處理器，重新檢查發現已撤銷 → 直接跳過 |
+| AC-5（跨帳號存取稽核落地） | ✅ 整合測試：`audit_events` 新增一列 `project_access_denied`，非僅 console 日誌 |
+| AC-6（稽核事件不含健康內容） | ✅ 整合測試：`metadata` 僅含白名單結構化欄位 |
+| AC-7（Storage 真刪除） | ✅ 整合測試：帳號名下已上傳文件對應 Storage 物件於永久刪除後確實不存在 |
+| AC-8（未登入保護） | ✅ 瀏覽器驗證：未帶 session 直接呼叫申請／撤銷端點皆回 401 `AUTH_REQUIRED` |
+| AC-9（UI） | ✅ 瀏覽器驗證：`/account` 頁面正確顯示確認流程與倒數提示 |
+| AC-10（日誌 P0） | ✅ 整合測試：刪除鏈全流程不將健康內容或 token 寫入 console |
+
+### 端到端驗證（本機瀏覽器＋共用開發資料庫）
+用 Supabase Admin API 直接建立並確認的測試帳號（`register()` 走一般 `signUp()` 對 `.test.invalid` 網域回 `INVALID_EMAIL`，改用 Admin API 繞過，與正式站測試帳號建立手法一致）登入本機開發伺服器 → 至 `/account` 頁面，確認畫面顯示帳號 Email 與「刪除帳號」按鈕 → 點擊後彈出瀏覽器原生二次確認對話框（A141），確認 → `POST /api/auth/me/deletion` 回應成功，頁面即時切換為「帳號即將刪除」倒數提示區塊，正確顯示「您的帳號將於 2026 年 8 月 21 日永久刪除」（今日 2026-07-22＋30 天）→ 點擊「取消刪除申請」→ `DELETE /api/auth/me/deletion` 回應成功，頁面切回原本的刪除帳號區塊，確認 UI 狀態切換正確。另於頁面內直接 `fetch`（不帶 cookie）呼叫申請／撤銷兩端點，確認皆回 401 `AUTH_REQUIRED`（AC-8）。驗證完畢後測試帳號（含 Supabase Auth、`consent_records`）已全數清除。全專案 201 個測試（+9）／typecheck／lint／`pnpm build` 全綠。
+
+**誠實記錄（本輪 DOD 額外要求）**：AC-3（背景永久刪除）與 AC-4（防競態）皆以整合測試直接呼叫 `permanentlyDeleteAccount()` 驗證邏輯正確性，**未實測真實等待 30 天**——`runAt` 延遲排程機制本身（`WHERE run_at <= now()`）沿用 E2-F2 已驗證過的既有邏輯，本輪未額外驗證 Worker 在生產環境長時間運行後仍正確認領到期工作這件事（風險評估：與既有 `parse-document`／`standardize-document` 等既有 job type 使用同一套 `claimNext()` 邏輯，非新路徑，風險低）。**本輪範圍僅帳號層級刪除，既有專案層級刪除機制（E1-F4）未變動。**
+
+下一步：確認 commit／push，之後進行正式站部署驗證。
 
 ## Sprint 22 — E5-F4：看診摘要與資料匯出模組（C19/C20）✅ 實作＋測試＋瀏覽器驗證＋正式站部署驗證皆完成，正式結案
 

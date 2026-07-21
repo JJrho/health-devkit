@@ -12,7 +12,11 @@ export const GET = withErrorEnvelope(async (request, requestId) => {
   if (!("userId" in auth)) return auth;
 
   const rows = await getDb()
-    .select({ email: users.email, emailVerified: users.emailVerified })
+    .select({
+      email: users.email,
+      emailVerified: users.emailVerified,
+      deletionRequestedAt: users.deletionRequestedAt,
+    })
     .from(users)
     .where(eq(users.id, auth.userId))
     .limit(1);
@@ -27,6 +31,7 @@ export const GET = withErrorEnvelope(async (request, requestId) => {
         email: user.email,
         emailVerified: user.emailVerified,
         mostRecentProjectId,
+        deletionRequestedAt: user.deletionRequestedAt ? user.deletionRequestedAt.toISOString() : null,
       },
       requestId,
     ),
