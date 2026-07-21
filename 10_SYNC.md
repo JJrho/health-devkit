@@ -7,7 +7,9 @@
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格見 `archive/upstream_spec/`（2026-07-17 補齊，KB-027）；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
-**Sprint 21（E1-F3：Google 登入與帳號連結模組）已 commit（`e3c5f5d`）＋push＋正式站部署驗證通過，正式結案，E1 Epic 全數完成（5/5）**：補上第二種登入方式，走 Supabase Auth 內建 OAuth 供應商代理（A121，非自架 OAuth client）。瀏覽器端導向流程：`signInWithOAuth()` 導向 Google→回 `/auth/callback`→取得 `access_token`→POST `/api/auth/google` 由伺服器驗證並建立本系統自有 session（A122）。Google 失敗（token 驗證失敗或新帳號未附同意條款）一律不建立半完成帳號（A123，逐字落實上游 §28.1）。**關鍵技術發現**：伺服器端驗證 access_token 改用 `anon.auth.getUser()`，不用 Admin API——本專案 `service_role` 為新版不透明金鑰格式，已知不被 Admin API 接受（A124，見 KB-009／KB-012）。同意條款把關集中於註冊頁，登入頁 Google 按鈕不顯示勾選框，全新帳號經登入頁嘗試時回 `CONSENT_REQUIRED`（A125）。全專案 184 個測試（+7）／typecheck／lint／`pnpm build` 全綠。**正式站部署驗證含真實 Google 帳號端到端登入**：PO 於 Supabase Dashboard 設定 Google Provider 過程一度漏開「Enable Sign in with Google」總開關（填憑證與開啟總開關是兩個獨立步驟），修正後 PO 用本人真實帳號完整跑通登入流程——導向 Google 真實登入畫面→完成帳戶驗證（過程曾因自動化瀏覽器環境觸發 Google 風控簡訊驗證，改用 PO 平常慣用瀏覽器後順利通過，與本專案程式碼無關）→同意授權→正確導回正式站並成功落地 `/projects`，確認 session 建立與四層權限鏈存取皆正常。**已知非阻塞待辦**：Google 同意畫面顯示 Supabase 專案網域而非友善應用程式名稱，需 PO 另於 Google Cloud Console 設定，純品牌體感問題。
+**Sprint 22（E5-F4：看診摘要與資料匯出模組，C19/C20）實作＋測試＋本機瀏覽器驗證完成，尚待 commit／push／正式站部署驗證，E5 健康行動閉環全數完成（4/4）**：看診摘要（C19）不落地儲存，即時彙整既有資料（A128）。**實作中修正**：原計畫用 `pdf-lib` 伺服器端繪製 PDF，實測發現其標準字型不支援中文，改為瀏覽器友善列印方案（`@media print` A4 排版＋`window.print()`），不需額外字型或套件。資料匯出（C20）範圍為單一專案（A130），ZIP 用 `archiver@7.0.1`（實作中發現 v8 API 改為具名類別匯出、與慣用寫法不相容，改釘選 v7，A131），原始檔透過既有 `StorageAdapter` 直接串流進 ZIP 回應，不簽發對外連結（A132，本專案首個直接串流二進位回應的端點）。「執行中計畫」區塊銜接 E5-F3：近期有「需要專業評估」檢討的計畫附註提示並原樣帶出既有轉介摘要內容。全專案 192 個測試（+8）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整操作驗證通過，含核心銜接情境（計畫轉需要專業評估→產生轉介摘要→看診摘要正確附註並帶出內容）與匯出端點實際二進位回應驗證（200／`application/zip`／UTF-8 中文檔名／非零位元組）。
+
+Sprint 21（E1-F3：Google 登入與帳號連結模組）已 commit（`e3c5f5d`）＋push＋正式站部署驗證通過，正式結案，E1 Epic 全數完成（5/5）**：補上第二種登入方式，走 Supabase Auth 內建 OAuth 供應商代理（A121，非自架 OAuth client）。瀏覽器端導向流程：`signInWithOAuth()` 導向 Google→回 `/auth/callback`→取得 `access_token`→POST `/api/auth/google` 由伺服器驗證並建立本系統自有 session（A122）。Google 失敗（token 驗證失敗或新帳號未附同意條款）一律不建立半完成帳號（A123，逐字落實上游 §28.1）。**關鍵技術發現**：伺服器端驗證 access_token 改用 `anon.auth.getUser()`，不用 Admin API——本專案 `service_role` 為新版不透明金鑰格式，已知不被 Admin API 接受（A124，見 KB-009／KB-012）。同意條款把關集中於註冊頁，登入頁 Google 按鈕不顯示勾選框，全新帳號經登入頁嘗試時回 `CONSENT_REQUIRED`（A125）。全專案 184 個測試（+7）／typecheck／lint／`pnpm build` 全綠。**正式站部署驗證含真實 Google 帳號端到端登入**：PO 於 Supabase Dashboard 設定 Google Provider 過程一度漏開「Enable Sign in with Google」總開關（填憑證與開啟總開關是兩個獨立步驟），修正後 PO 用本人真實帳號完整跑通登入流程——導向 Google 真實登入畫面→完成帳戶驗證（過程曾因自動化瀏覽器環境觸發 Google 風控簡訊驗證，改用 PO 平常慣用瀏覽器後順利通過，與本專案程式碼無關）→同意授權→正確導回正式站並成功落地 `/projects`，確認 session 建立與四層權限鏈存取皆正常。**已知非阻塞待辦**：Google 同意畫面顯示 Supabase 專案網域而非友善應用程式名稱，需 PO 另於 Google Cloud Console 設定，純品牌體感問題。
 
 Sprint 20（E5-F3：定期檢討與無改善分類模組，十分類＋轉介摘要）：銜接 E5-F2，新增 `plan_reviews`（定期檢討）／`escalation_summaries`（轉介摘要）兩表＋服務層＋API，UI 併入既有計畫詳情面板（A120）。核心設計：不落地 `review_due` 狀態，改用計算式判斷是否達檢討日（A113）；十分類（上游 §9.3）為白名單，UI 下拉選單非自由文字（A114）；十分類結果僅觸發狀態標記——「計畫可能無效」→`ineffective`、「需要專業評估」→`escalated`、「出現不良反應」→比照 A105 呼叫 `stopPlan()`，其餘七類維持原狀態，系統從未自動調整行動、指標或強度（A115，落實憲法 §3）；`ineffective`／`escalated` 可透過既有版本鏈調整回到 `active`（A116）；已完成的檢討不可覆寫（A112）；轉介摘要為伺服器端純結構化聚合，不經 LLM 生成，僅在已有需要專業評估的檢討時可產生（A118／A119）。全專案 178 個測試（+14）／typecheck／lint／`pnpm build` 全綠；本機與正式站瀏覽器皆完整驗證通過，含兩條核心路徑（需要專業評估→計畫轉 `escalated`→產生轉介摘要→狀態轉換 draft→ready→exported→調整回到 `active`；已完成的檢討直接呼叫 API 確認無法覆寫），驗證用測試帳號與資料（含正式站）已全數清除。
 
@@ -42,10 +44,10 @@ Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）：A22（`pdfjs-dist` 伺�
 Sprint 6（E2-F1 上傳會話與預覽模組）：已 commit（`b2b413f`）＋push＋正式站部署驗證通過。⚠️ A21（惡意檔案掃描缺口）正式生效，登記 KB-021。
 
 ## 4. 下一步
-**Sprint 21（E1-F3）已 commit／push／正式站部署驗證通過（含真實 Google 帳號登入），正式結案，E1 Epic 全數完成**；下一步開 Sprint 22 DOR（依既定順序推進 E5-F4：看診摘要與資料匯出模組）。剩餘 32 章節（約 681 頁）真實內容轉錄方式待決定（非阻塞）；KB-018／KB-020 待 PO 決定處理時機（非阻塞）；Google OAuth 同意畫面應用程式名稱客製化（純品牌體感，非阻塞，見 07_SPRINT_LOG 已知限制）。
+**Sprint 22（E5-F4）實作＋測試＋本機瀏覽器驗證完成**，待 PO 確認 commit／push／正式站部署時機；部署驗證通過後開 Sprint 23 DOR（依既定順序推進 E6-F1：稽核事件與刪除鏈模組），E6 為最後一個 Epic。剩餘 32 章節（約 681 頁）真實內容轉錄方式待決定（非阻塞）；KB-018／KB-020 待 PO 決定處理時機（非阻塞）；Google OAuth 同意畫面應用程式名稱客製化（純品牌體感，非阻塞，見 07_SPRINT_LOG 已知限制）。
 
 ## 5. 最高優先事項
-Sprint 22 DOR 規劃（E5-F4：看診摘要與資料匯出模組）；剩餘 32 章節（約 681 頁）真實內容的轉錄方式待決定（非阻塞）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機。
+Sprint 22（E5-F4）commit／push／正式站部署驗證；之後 Sprint 23 DOR 規劃（E6-F1：稽核事件與刪除鏈模組）；剩餘 32 章節（約 681 頁）真實內容的轉錄方式待決定（非阻塞）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機。
 
 ## 6. 不可破壞的原則
 憲法 §3 醫療安全全列；未確認資料不入正式分析；健康內容不入日誌（白名單 redaction 已落地）。**機密處理鐵則（Sprint 8 再度強化）：絕不對含機密的檔案／指令輸出使用會印出完整內容的工具；`zeabur variable create／update／delete` 一律不可直接查看標準輸出（不只 `list`，這三者的成功確認訊息也會印出完整既有變數表，KB-026 實測證實）——一律重導向到檔案、用 `grep -c` 之類只回傳數字的方式確認成功，讀完立刻刪除。本專案已發生 4 次意外機密外洩，這條規則被違反過不只一次，往後必須嚴格遵守，不可自行判斷「這次應該沒關係」。

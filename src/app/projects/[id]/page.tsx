@@ -134,6 +134,12 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
               健檔文件
             </Link>
             <Link
+              href={`/projects/${projectId}/reports`}
+              className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
+            >
+              看診摘要與匯出
+            </Link>
+            <Link
               href="/projects"
               className="font-semibold text-blue-700 underline focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
