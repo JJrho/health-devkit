@@ -1,6 +1,6 @@
 # 專案地圖 Roadmap — 個人健康檢查管理平台
 
-> 最後更新：2026-07-20（Sprint 21／E1-F3 Google 登入與帳號連結模組實作＋測試＋本機瀏覽器驗證完成，尚待 commit／push／正式站部署驗證；真實 Google 帳號端到端驗證另待 PO 完成 Supabase Dashboard 設定）
+> 最後更新：2026-07-21（Sprint 21／E1-F3 Google 登入與帳號連結模組已 commit／push／正式站部署驗證通過，正式結案，E1 Epic 全數完成；已用 PO 本人真實 Google 帳號完整驗證端到端登入）
 
 ## 1. 一句話目標
 讓 50–65 歲使用者把多年健檢資料變成可追溯的趨勢與可停止的行動計畫。
@@ -9,28 +9,28 @@
 
 | Epic | 名稱 | 進度 | Feature 完成 | 預估 Sprint |
 |---|---|---|---|---|
-| E1 | 平台與信任基座 | 🟢🟢🟢🟢🟡 | 4/5（E1-F1／E1-F2／E1-F4／E1-F5 ✅已部署；E1-F3 Google 登入實作＋測試＋瀏覽器驗證完成，尚待部署與外部設定） | 6 |
+| E1 | 平台與信任基座 | 🟢🟢🟢🟢🟢 | 5/5（E1-F1／E1-F2／E1-F3／E1-F4／E1-F5 ✅皆已部署，Epic 全數完成） | 6 |
 | E2 | 健檢資料入庫管線 | 🟢🟢🟢🟢 | 4/4（E2-F1／E2-F2／E2-F3／E2-F4 ✅已部署，Epic 全數完成） | 5 |
 | E3 | 健康洞察呈現層 | 🟢🟢 | 2/2（E3-F2／E3-F1 ✅皆已部署，Epic 全數完成） | 2 |
 | E4 | 知識庫與串流問答引擎 | 🟢🟢🟢 | 3/3（E4-F1／E4-F2／E4-F3 皆完成，Epic 全數完成，皆已部署驗證通過） | 4 |
 | E5 | 健康行動閉環 | 🟢🟢🟢⚪ | 3/4（E5-F1／E5-F2／E5-F3 ✅皆已部署，正式結案） | 5 |
 | E6 | 稽核基座與交付驗證包 | ⚪⚪ | 0/2 | 2 |
 
-整體進度：已完成 Sprint **20 / 24**（Sprint 21 實作＋測試＋瀏覽器驗證完成、尚待部署，未計入；粗估 17，精估 24，差異說明見 05_BACKLOG）
+整體進度：已完成 Sprint **21 / 24**（粗估 17，精估 24，差異說明見 05_BACKLOG）
 
 ## 3. 目前所在位置
-- 最近完成：**Sprint 21（E1-F3：Google 登入與帳號連結模組）實作＋測試＋本機瀏覽器驗證完成，尚待 commit／push／正式站部署驗證（2026-07-20）**：走 Supabase Auth 內建 OAuth 供應商代理，非自架 OAuth client（A121）；瀏覽器端導向流程——`signInWithOAuth()` 導向 Google→回 `/auth/callback`→取得 `access_token`→POST `/api/auth/google` 由伺服器驗證並建立本系統自有 session（A122）；Google 失敗不建立半完成帳號（A123，逐字落實上游 §28.1）。**關鍵技術發現**：伺服器端驗證 access_token 改用 `anon.auth.getUser()`，不用 Admin API——本專案 `service_role` 為新版不透明金鑰格式，已知不被 Admin API 接受（A124，見 KB-009／KB-012）。同意條款把關集中於註冊頁（A125）。全專案 184 測試（+7）／typecheck／lint／build 全綠；本機瀏覽器對真實 Supabase 實例完整驗證：偽造 token 正確回 401 `AUTH_GOOGLE_FAILED`，OAuth 導向 URL 參數正確組裝。**真實 Google 帳號端到端登入尚待 PO 於 Supabase Dashboard 啟用 Google Provider**（sprints/sprint-21-dor.md §0）。
-- 下一個：PO 確認 Sprint 21 commit／push／正式站部署時機；PO 完成 Google OAuth 外部設定後補做真實帳號端到端驗證；驗證通過後開 Sprint 22 DOR（依既定順序推進 E5-F4：看診摘要與資料匯出模組）
+- 最近完成：**Sprint 21（E1-F3：Google 登入與帳號連結模組）已 commit（`e3c5f5d`）／push／正式站部署驗證通過，正式結案，E1 Epic 全數完成（2026-07-21）**：走 Supabase Auth 內建 OAuth 供應商代理，非自架 OAuth client（A121）；瀏覽器端導向流程——`signInWithOAuth()` 導向 Google→回 `/auth/callback`→取得 `access_token`→POST `/api/auth/google` 由伺服器驗證並建立本系統自有 session（A122）；Google 失敗不建立半完成帳號（A123，逐字落實上游 §28.1）。**關鍵技術發現**：伺服器端驗證 access_token 改用 `anon.auth.getUser()`，不用 Admin API——本專案 `service_role` 為新版不透明金鑰格式，已知不被 Admin API 接受（A124，見 KB-009／KB-012）。同意條款把關集中於註冊頁（A125）。全專案 184 測試（+7）／typecheck／lint／build 全綠。**正式站部署驗證含真實 Google 帳號端到端登入**：PO 於 Supabase Dashboard 設定過程排查發現漏開「Enable Sign in with Google」總開關（填憑證與開啟總開關是兩個獨立步驟），修正後 PO 用本人真實帳號完整跑通登入流程，成功導回正式站並落地 `/projects`。**已知非阻塞待辦**：Google 同意畫面顯示 Supabase 專案網域而非友善應用程式名稱，需另於 Google Cloud Console 設定。
+- 下一個：開 Sprint 22 DOR（依既定順序推進 E5-F4：看診摘要與資料匯出模組）
 
 ## 4. 接下來三步
-1. Sprint 21（E1-F3）commit／push／正式站部署驗證；PO 完成 Google OAuth 外部設定（見 §5）
-2. 開 Sprint 22 DOR（E5-F4：看診摘要與資料匯出模組）
+1. 開 Sprint 22 DOR（E5-F4：看診摘要與資料匯出模組）
+2. PO 選配：Google Cloud Console 設定 OAuth 同意畫面應用程式名稱（品牌體感，非阻塞）
 3. 剩餘 32 章節（約 681 頁）真實內容轉錄方式待決定；KB-018／KB-020 待決定處理時機（皆非阻塞）
 
 **OCR 排程最終拍板（2026-07-16）**：掃描 OCR 啟用（C4 flag）已移出 05_BACKLOG「Phase 2+」大雜燴。**PoC 完成（KB-023，86% 真實文件無文字層）後，PO 決定維持原計畫，OCR 仍排在 E2-F3 之後，不提前插隊**——優先把文字型管線＋手動輸入 fallback 做穩、資料模型穩定後再接 OCR，避免整合成本與風險。屆時另立 DOR，需先決定 OCR 供應商（自架 vs. 雲端 API，涉及成本與健檢文件送第三方的隱私考量），並將手機拍照特有挑戰（透視變形、光線、解析度、部分入鏡）納入設計考量，不只是掃描器品質輸入。
 
 ## 5. 目前最大風險與外部依賴
-1. 🟡 E1-F3 Google 登入外部設定未完成（實作＋測試＋本機瀏覽器驗證完成，尚待正式站部署驗證）。**程式碼與架構已在本機驗證正確**：OAuth 導向 URL 組裝正確、伺服器對真實 Supabase 實例的 token 驗證邏輯正確（用偽造 token 觸發真實失敗路徑，回應 401 `AUTH_GOOGLE_FAILED`）、Google 失敗不建立半完成帳號（A123）。**唯一阻塞項是外部設定，非程式邏輯**：PO 需於 Google Cloud Console 建立 OAuth 用戶端＋Supabase Dashboard 啟用 Google Provider 並貼入憑證＋確認「Allow linking accounts with the same verified email」已啟用（詳見 sprints/sprint-21-dor.md §0）。**殘留範圍**：設定完成前，真實 Google 帳號的端到端登入流程無法實測
+1. 🟢 E1-F3 Google 登入（實作＋測試＋本機與正式站瀏覽器驗證皆完成，正式結案）。**設計已在正式生產環境用 PO 本人真實 Google 帳號完整驗證**：導向 Google 真實登入畫面→完成帳戶驗證→同意授權→正確導回正式站並成功登入，session 建立與四層權限鏈存取皆正常；伺服器對真實 Supabase 實例的 token 驗證邏輯正確（A124）、Google 失敗不建立半完成帳號（A123）。**殘留範圍**：Google 同意畫面應用程式名稱客製化（純品牌體感，非阻塞，見 07_SPRINT_LOG 已知限制）
 2. 🟢 E5-F3 十分類與轉介摘要（實作＋測試＋本機瀏覽器驗證＋正式站部署驗證皆完成，正式結案）。**設計已在正式生產環境完整驗證**：十分類白名單分類僅觸發狀態標記，系統不對日常回報或症狀事件資料做語意分析自動判定（A114，延續 A62／A73／A87／A105 一貫原則），且已確認「無改善不自動增加強度」（A115，落實憲法 §3，行動與指標不受任何自動調整），正式站直接呼叫 API 確認已完成的檢討無法覆寫（A112，409 `INVALID_REQUEST`）。**殘留範圍**：看診摘要與資料匯出（E5-F4）
 3. 🟢 E5-F2 不良反應暫停鏈（實作＋測試＋本機瀏覽器驗證＋正式站部署驗證皆完成，正式結案）。**設計已在正式生產環境完整驗證**：`isAdverseEvent` 完全由使用者手動標記，系統不對症狀描述做語意分析自動判定（A105，延續 A62／A73／A87 一貫原則），標記後立即觸發計畫暫停，且已確認「因不良反應停止後無任何恢復路徑」（A106，UI 與正式站 API 直接呼叫皆驗證成立，`/resume`／`/pause` 皆回 409 `PLAN_ADVERSE_EVENT`）
 4. 🟢 E5-F1 行動計畫啟用安全審查（Part 1/2＋2/2 皆完成並正式站部署驗證通過，正式結案；05_BACKLOG 風險標記「醫療安全核心」，本專案曾經風險等級最高的 Feature，設計已在正式生產環境完整驗證）。`activatePlan()` 僅做結構化欄位完整性檢查（A87），不對 `health_profiles` 內容語意判讀；已啟用計畫的調整改為版本鏈（A96／A97），調整後重新安全審查防止繞過啟用把關（A100）

@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 21 實作＋測試＋本機瀏覽器驗證完成，尚待 commit／push／正式站部署驗證（2026-07-20）——**E1-F3：Google 登入與帳號連結模組**。程式碼、API、UI 皆完成並在本機驗證正確；**真實 Google 帳號端到端登入尚待 PO 完成 Supabase Dashboard 設定**（見已知限制）。
+> 目前狀態：Sprint 21 已 commit（`e3c5f5d`）／push／正式站部署驗證通過（2026-07-20）——**E1-F3：Google 登入與帳號連結模組，正式結案**。PO 完成 Supabase Dashboard Google Provider 設定後，已用 PO 本人真實 Google 帳號完整跑通一次端到端登入，成功導向 `/projects`。
 
-## Sprint 21 — E1-F3：Google 登入與帳號連結模組 ✅ 實作＋測試＋瀏覽器驗證完成，尚待 commit／push／部署；⚠️ 真實 Google 帳號登入待外部設定完成
+## Sprint 21 — E1-F3：Google 登入與帳號連結模組 ✅ 實作＋測試＋瀏覽器驗證＋正式站部署驗證（含真實 Google 帳號）皆完成，正式結案
 
 - 期間：2026-07-20（單日完成）
 - DOR：✅ 通過（sprints/sprint-21-dor.md；A121–A127 由 PO 追認）
@@ -26,22 +26,27 @@
 | AC-5（session 一致性） | 結構已與既有 Email／密碼登入相同（沿用同一 `createSession()`／`GET /api/auth/me`），未另立測試重複驗證既有端點 |
 | AC-6（登出，回歸確認） | ✅ 整合測試：Google 登入建立的 session 可正常登出撤銷，沿用既有 `revokeSession()` |
 | AC-7（日誌 P0） | ✅ 整合測試：建立／驗證過程不含 `accessToken`／Email |
-| AC-8（UI） | ✅ 瀏覽器驗證：登入頁／註冊頁皆顯示按鈕；註冊頁勾選前按鈕停用、勾選後啟用；點擊後正確導向 Supabase OAuth 授權端點（`provider=google`＋正確 `redirect_to`）。**真實 Google 帳號選擇畫面因外部設定未完成，本輪無法驗證到底**（見已知限制） |
+| AC-8（UI） | ✅ 瀏覽器驗證：登入頁／註冊頁皆顯示按鈕；註冊頁勾選前按鈕停用、勾選後啟用；點擊後正確導向 Google 真實登入畫面，PO 用本人帳號完成同意後正確導回正式站並成功登入（見下方正式站部署驗證段落） |
 
 ### 端到端驗證（本機瀏覽器＋共用開發資料庫＋真實 Supabase 實例）
 註冊頁：確認同意條款兩個勾選框皆未勾選時「使用 Google 登入」按鈕停用；勾選後按鈕啟用，點擊後瀏覽器正確導向 `https://<專案>.supabase.co/auth/v1/authorize?provider=google&redirect_to=.../auth/callback`——因 Supabase Dashboard 尚未啟用 Google Provider（A126 已知阻塞項），Supabase 回應 `{"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}`，此為預期中的外部設定未完成訊息，非程式錯誤，正確驗證了前端導向流程的參數組裝無誤。登入頁：確認按鈕不受同意條款勾選狀態限制，預設即啟用。`/api/auth/google` 端點：直接對正式執行中的本機伺服器（連真實 Supabase 實例，非測試假 adapter）送出偽造 `accessToken` → 正確回應 `401 AUTH_GOOGLE_FAILED`；送出空請求 → 正確回應 `400 INVALID_REQUEST`（缺少憑證）。`/auth/callback` 頁面：無有效 OAuth session 時，8 秒逾時後正確顯示「登入未完成」錯誤狀態與返回登入頁連結。全專案 184 個測試（+7）／typecheck／lint／`pnpm build` 全綠。
 
+### 正式站部署驗證（2026-07-21，含真實 Google 帳號端到端登入）
+Web／worker 兩 service 皆已部署 commit `e3c5f5d`（`RUNNING`），`/api/health` 200。第一次直接對正式站 Supabase 專案打 `/auth/v1/authorize?provider=google` 仍回應 `provider is not enabled`——排查後發現 PO 雖已在 Supabase Dashboard 填入 Client ID／Secret，但「Enable Sign in with Google」總開關本身尚未切換為啟用（填憑證與啟用開關是兩個獨立步驟，容易漏看）。PO 修正後（開關切為啟用＋存檔），重新直接打 Supabase authorize 端點，正確導向 Google 真實登入畫面（頁面顯示「繼續使用「`<專案>`.supabase.co」」）。PO 過程中一度卡在 Google 自身的帳戶安全簡訊驗證（與本專案程式碼／設定無關，疑似因透過自動化瀏覽器環境觸發 Google 風控機制），改用 PO 本人平常慣用的瀏覽器重試後順利通過。PO 用本人真實 Google 帳號完成一次完整登入流程，同意畫面確認資訊存取範圍後點擊繼續，成功導回正式站並落地 `/projects` 頁面（顯示「我的健康專案」，可建立新專案），確認 session 建立成功、四層權限鏈可正常存取。此為 A122（瀏覽器端 OAuth 導向流程）／A124（`anon.auth.getUser()` 驗證真實 Google 核發 token）在正式生產環境的完整端到端驗證，非僅本機或 mock 驗證。
+
+**額外發現（非阻塞，已記錄待辦）**：Google 同意畫面顯示的應用程式名稱為 Supabase 專案網域（`<專案>.supabase.co`），而非友善名稱，原因是 Google Cloud Console「OAuth 同意畫面」的「應用程式名稱」欄位尚未填寫。這是純品牌／信任體感問題，不影響功能；已告知 PO 於 Google Cloud Console 設定，非本輪阻塞項，見已知限制。
+
 ### DOD 核對
-- [x] 正常／邊緣／錯誤測試通過：整合測試 7 項全綠＋本機瀏覽器驗證（含對真實 Supabase 實例的 API 層級驗證）
-- [x] 肉眼驗收：✅ 真實瀏覽器操作確認登入頁／註冊頁按鈕狀態、OAuth 導向參數正確、callback 頁逾時錯誤處理正確
+- [x] 正常／邊緣／錯誤測試通過：整合測試 7 項全綠＋本機與正式站瀏覽器驗證（含對真實 Supabase 實例／真實 Google 帳號的完整端到端驗證）
+- [x] 肉眼驗收：✅ 真實瀏覽器操作確認登入頁／註冊頁按鈕狀態、OAuth 導向參數正確、callback 頁逾時錯誤處理正確、**PO 本人真實 Google 帳號完整登入成功**
 - [x] 沒有新增明顯 UI/UX 問題：Google 按鈕樣式與既有表單一致，disabled 狀態清楚
 - [x] 修正皆反映於規格與文件：本節已更新；SDD／SYNC／ROADMAP 一併更新
-- [ ] commit／push／正式站部署驗證：**尚待 PO 確認部署時機**（部署後仍需 PO 完成 Supabase Google Provider 設定，才能做真實 Google 帳號端到端驗證，見已知限制）
+- [x] commit／push／正式站部署驗證：commit `e3c5f5d`／push 至 main／正式站真實資料端到端驗證通過（2026-07-21，含真實 Google 帳號登入）
 
 ### 已知限制（誠實記錄，非誇大宣稱）
-- **真實 Google 帳號登入尚未端到端驗證**：Supabase Dashboard 的 Google Provider 尚未啟用（A126，`.env.example` 佔位符確認此設定原本就外部管理，非本輪程式碼遺漏）。本輪已驗證的範圍止於：OAuth 導向 URL 組裝正確、伺服器對真實 Supabase 實例的 token 驗證邏輯正確（用偽造 token 觸發真實的失敗路徑）、UI 狀態正確。**尚未驗證**：完成一次真實 Google 帳號同意畫面後，`/auth/callback` 頁實際收到有效 `access_token` 並成功建立本系統 session 的完整流程。待 PO 完成 Google Cloud Console＋Supabase Dashboard 設定（見 sprints/sprint-21-dor.md §0）後，需補做一次真人帳號的端到端瀏覽器驗證，正式站部署驗證時一併確認。
+- **OAuth 同意畫面應用程式名稱未客製化**：Google 同意畫面目前顯示 Supabase 專案網域而非友善名稱，需 PO 於 Google Cloud Console「OAuth 同意畫面」設定「應用程式名稱」欄位（純品牌體感問題，不影響功能，不阻塞本輪結案）。
 - **AC-5 未另立測試**：Google 登入建立的 session 與既有 Email／密碼登入使用同一 `createSession()`／`sessions` 表／`GET /api/auth/me` 端點，結構一致性由既有 E1-F2 測試與程式碼共用路徑保證，本輪未重複寫一份幾乎相同的測試。
-- **帳號自動連結依賴 Supabase 後台設定**：「同一已驗證 Email 不無提示建立兩個帳號」的實際生效，除了本系統程式邏輯（AC-3 已驗證：既有 `users` id 存在即視為同一帳號），也依賴 Supabase Dashboard「Allow linking accounts with the same verified email」正確啟用；若 PO 後台設定與程式邏輯認知不一致，需在真人測試階段一併確認。
+- **帳號自動連結（Supabase「Allow linking accounts with the same verified email」）僅由 PO 於本輪一併確認啟用，未另外用「先密碼註冊、後 Google 登入同 Email」的組合在正式站實測**：AC-3（既有帳號改用 Google 登入不重複建帳號）已在整合測試以假 adapter 完整驗證程式邏輯正確；正式站的真人驗證涵蓋的是「全新帳號走 Google 登入」路徑，非「既有密碼帳號改連結 Google」路徑，兩者程式碼邏輯相同（見 `loginWithGoogle()` 的既有／全新分流），風險低但誠實記錄尚未在正式站對這個特定組合實測。
 
 ## Sprint 20 — E5-F3：定期檢討與無改善分類模組（十分類＋轉介摘要）✅ 實作＋測試＋瀏覽器驗證＋正式站部署驗證皆完成，正式結案
 
