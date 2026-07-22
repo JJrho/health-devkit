@@ -51,6 +51,7 @@ class FakeAuthAdapter implements AuthAdapter {
   async getUserById(): Promise<AuthUser | null> {
     return null;
   }
+  async deleteUser(): Promise<void> {}
 
   async verifyGoogleToken(accessToken: string) {
     const identity = this.googleTokens.get(accessToken);

@@ -1,7 +1,15 @@
 import { randomUUID } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
+import type {
+  AuthAdapter,
+  AuthUser,
+  ClaimedJob,
+  EnqueueInput,
+  QueueAdapter,
+  QueueJobView,
+  StorageAdapter,
+} from "@/adapters";
 import { getDb, closePool } from "@/db/client";
 import { auditEvents, conversations, documents, projects, users } from "@/db/schema";
 import { createProject } from "@/modules/projects";
@@ -40,6 +48,26 @@ class FakeStorageAdapter implements StorageAdapter {
   }
   has(key: string): boolean {
     return this.store.has(key);
+  }
+}
+
+class FakeAuthAdapter implements AuthAdapter {
+  deletedUserIds: string[] = [];
+  async register(): Promise<{ userId: string } | "EMAIL_EXISTS" | "INVALID_EMAIL" | "EMAIL_RATE_LIMITED"> {
+    throw new Error("not implemented");
+  }
+  async verifyPassword() {
+    return null;
+  }
+  async sendPasswordReset(): Promise<void> {}
+  async getUserById(): Promise<AuthUser | null> {
+    return null;
+  }
+  async verifyGoogleToken() {
+    return "AUTH_GOOGLE_FAILED" as const;
+  }
+  async deleteUser(userId: string): Promise<void> {
+    this.deletedUserIds.push(userId);
   }
 }
 
@@ -123,10 +151,11 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
     const userId = await seedUser();
     const queue = new FakeQueueAdapter();
     const storage = new FakeStorageAdapter();
+    const auth = new FakeAuthAdapter();
     await createProject(userId, "待刪除專案");
     await requestAccountDeletion(queue, userId, "req-3");
 
-    const result = await permanentlyDeleteAccount(storage, userId);
+    const result = await permanentlyDeleteAccount(storage, auth, userId);
     expect(result.deleted).toBe(true);
 
     const user = await getUserRow(userId);
@@ -136,20 +165,24 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
       .from(projects)
       .where(eq(projects.ownerId, userId));
     expect(remainingProjects).toEqual([]);
+    // 正式站部署驗證發現並修正的缺陷：僅刪本地 users 列不夠，Auth 身分也須刪除
+    expect(auth.deletedUserIds).toEqual([userId]);
   });
 
   it("AC-4（撤銷後不誤刪，防競態）：即使原排程時間已到，重新檢查發現已撤銷則跳過", async () => {
     const userId = await seedUser();
     const queue = new FakeQueueAdapter();
     const storage = new FakeStorageAdapter();
+    const auth = new FakeAuthAdapter();
     await requestAccountDeletion(queue, userId, "req-4a");
     await cancelAccountDeletion(userId, "req-4b");
 
-    const result = await permanentlyDeleteAccount(storage, userId);
+    const result = await permanentlyDeleteAccount(storage, auth, userId);
     expect(result.deleted).toBe(false);
 
     const user = await getUserRow(userId);
     expect(user).not.toBeNull();
+    expect(auth.deletedUserIds).toEqual([]);
   });
 
   it("AC-5（跨帳號存取稽核落地）：audit_events 新增一列 project_access_denied，非僅 console 日誌", async () => {
@@ -188,6 +221,7 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
     const userId = await seedUser();
     const queue = new FakeQueueAdapter();
     const storage = new FakeStorageAdapter();
+    const auth = new FakeAuthAdapter();
     const project = await createProject(userId, "含文件的待刪除專案");
     const storageKey = `documents/${randomUUID()}/report.pdf`;
     await storage.putObject(storageKey, Buffer.from("fake pdf content"));
@@ -203,7 +237,7 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
     expect(storage.has(storageKey)).toBe(true);
     await requestAccountDeletion(queue, userId, "req-7");
 
-    await permanentlyDeleteAccount(storage, userId);
+    await permanentlyDeleteAccount(storage, auth, userId);
 
     expect(storage.has(storageKey)).toBe(false);
     await expect(storage.getObject(storageKey)).rejects.toThrow();
@@ -213,11 +247,12 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
     const userId = await seedUser();
     const queue = new FakeQueueAdapter();
     const storage = new FakeStorageAdapter();
+    const auth = new FakeAuthAdapter();
     const project = await createProject(userId, "含對話的待刪除專案");
     await getDb().insert(conversations).values({ projectId: project.id, title: "測試對話" });
     await requestAccountDeletion(queue, userId, "req-3b");
 
-    await permanentlyDeleteAccount(storage, userId);
+    await permanentlyDeleteAccount(storage, auth, userId);
 
     const remainingConvos = await getDb()
       .select()
@@ -232,13 +267,14 @@ describe.skipIf(!hasDb)("account deletion module（整合，需 DATABASE_URL）"
     const userId = await seedUser();
     const queue = new FakeQueueAdapter();
     const storage = new FakeStorageAdapter();
+    const auth = new FakeAuthAdapter();
     const marker = `acct-log-marker-${randomUUID()}`;
     const project = await createProject(userId, marker);
 
     await requestAccountDeletion(queue, userId, "req-10");
     await cancelAccountDeletion(userId, "req-10b");
     await requestAccountDeletion(queue, userId, "req-10c");
-    await permanentlyDeleteAccount(storage, userId);
+    await permanentlyDeleteAccount(storage, auth, userId);
 
     const allOutput = [...spy.mock.calls, ...errSpy.mock.calls]
       .map((call) => String(call[0]))

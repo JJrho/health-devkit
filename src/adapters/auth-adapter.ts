@@ -43,6 +43,13 @@ export interface AuthAdapter {
   verifyGoogleToken(
     accessToken: string,
   ): Promise<{ userId: string; email: string; emailVerified: boolean } | "AUTH_GOOGLE_FAILED">;
+
+  /**
+   * E6-F1（C10）：永久刪除帳號時一併刪除外部 Auth 身分——僅刪本地 `users` 列
+   * 不夠，帳密憑證仍存於 Supabase Auth，使用者仍能登入並經既有
+   * `syncUserVerification()` upsert 邏輯讓 `users` 列復活，形同刪除未生效。
+   */
+  deleteUser(userId: string): Promise<void>;
 }
 
 export interface AuthUser {

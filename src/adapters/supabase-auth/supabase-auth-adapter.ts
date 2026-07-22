@@ -80,6 +80,16 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     });
   }
 
+  /**
+   * E6-F1：與 getUserById() 不同，admin.auth.admin.deleteUser() 實測對本專案
+   * 新版不透明格式 service_role 金鑰正常運作（KB-009／KB-012 記載的限制
+   * 僅限 getUserById() 等讀取端點，非全體 Admin API）。
+   */
+  async deleteUser(userId: string): Promise<void> {
+    const { error } = await this.admin.auth.admin.deleteUser(userId);
+    if (error) throw new Error(`刪除 Auth 使用者失敗：${error.code ?? "unknown"}`);
+  }
+
   async getUserById(userId: string): Promise<AuthUser | null> {
     const { data, error } = await this.admin.auth.admin.getUserById(userId);
     if (error || !data.user?.email) return null;

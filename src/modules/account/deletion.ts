@@ -1,5 +1,5 @@
 import { eq, inArray, sql } from "drizzle-orm";
-import type { QueueAdapter, StorageAdapter } from "@/adapters";
+import type { AuthAdapter, QueueAdapter, StorageAdapter } from "@/adapters";
 import { getDb } from "@/db/client";
 import {
   checkIns,
@@ -72,9 +72,19 @@ export async function cancelAccountDeletion(userId: string, requestId: string): 
  * 反覆驗證），新增 Storage 物件真刪除步驟（測試輔助函式原本不做）；另補上
  * 該輔助函式遺漏、正式路徑不可省略的 consent_records 清理——consent_records
  * 對 users 的外鍵為 ON DELETE no action，若不先刪會讓刪除 users 本列失敗。
+ *
+ * **正式站部署驗證中發現並修正的缺陷**：僅刪本地 `users` 列不夠——帳密憑證仍
+ * 存於 Supabase Auth，使用者「永久刪除」後仍可正常登入，且既有
+ * `syncUserVerification()` 的 upsert 邏輯會讓 `users` 列復活，形同刪除未生效
+ * （實測重現：本機直接呼叫 API 完成永久刪除流程後，重新登入回應 200 成功，
+ * `users` 列隨即重新出現）。修正為 `auth.deleteUser()` 必須在刪除本地
+ * `users` 列**之前**成功執行——若在之後才刪或刪除失敗，重試時本地列已消失、
+ * `deletionRequestedAt` 檢查會提前以 `deleted:false` 短路跳過，永遠不會
+ * 重試 Auth 刪除，帳號將永久卡在「本地資料已刪、Auth 身分仍存活」的狀態。
  */
 export async function permanentlyDeleteAccount(
   storage: StorageAdapter,
+  auth: AuthAdapter,
   userId: string,
 ): Promise<{ deleted: boolean }> {
   const db = getDb();
@@ -164,6 +174,9 @@ export async function permanentlyDeleteAccount(
   await db.delete(projects).where(eq(projects.ownerId, userId));
   await db.delete(sessions).where(eq(sessions.userId, userId));
   await db.delete(consentRecords).where(eq(consentRecords.userId, userId));
+
+  // 必須先刪 Auth 身分再刪本地 users 列（見上方函式註解說明的重試安全性理由）
+  await auth.deleteUser(userId);
   await db.delete(users).where(eq(users.id, userId));
 
   // 帳號本列已刪除，稽核事件無外鍵（A138）可獨立存續

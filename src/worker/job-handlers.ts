@@ -1,5 +1,6 @@
 import type { ClaimedJob } from "@/adapters";
 import { permanentlyDeleteAccount } from "@/modules/account/deletion";
+import { getAuthAdapter } from "@/modules/auth";
 import { getStorageAdapter } from "@/modules/documents";
 import { runExtraction } from "@/modules/extraction";
 import { standardizeDocument } from "@/modules/observations";
@@ -32,6 +33,6 @@ export const jobHandlers: Record<string, JobHandler> = {
   "delete-account": async (job) => {
     const userId = job.payload.userId;
     if (typeof userId !== "string") throw new Error("payload 缺少 userId");
-    await permanentlyDeleteAccount(getStorageAdapter(), userId);
+    await permanentlyDeleteAccount(getStorageAdapter(), getAuthAdapter(), userId);
   },
 };
