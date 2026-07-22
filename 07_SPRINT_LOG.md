@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 23（E6-F1：稽核事件與刪除鏈模組）實作＋測試＋本機瀏覽器驗證完成，尚未 commit（2026-07-22）。DOR 已通過（A135–A141 由 PO 追認）。
+> 目前狀態：Sprint 23（E6-F1：稽核事件與刪除鏈模組）已 commit（`fc7e19e`＋修正 `a99368a`）／push／正式站部署驗證通過（2026-07-22），正式結案。部署驗證過程中發現並修正兩項真實缺陷（詳見下方「正式站部署驗證」段落），修正後於正式站以真實 Worker 完整走過三次帳號永久刪除，含重新登入應失敗的關鍵驗證點。
 
-## Sprint 23 — E6-F1：稽核事件與刪除鏈模組（C10 三十日寬限／Storage 清理）✅ 實作＋測試＋本機瀏覽器驗證完成，待 commit／push／正式站部署驗證
+## Sprint 23 — E6-F1：稽核事件與刪除鏈模組（C10 三十日寬限／Storage 清理）✅ 實作＋測試＋本機與正式站瀏覽器驗證皆完成，正式結案
 
 - 期間：2026-07-22（單日完成）
 - DOR：✅ 通過（sprints/sprint-23-dor.md；A135–A141 由 PO 追認）
@@ -23,21 +23,27 @@
 |---|---|
 | AC-1（申請刪除成功） | ✅ 整合測試＋瀏覽器驗證：`deletionRequestedAt` 設定，稽核事件寫入，背景工作以 `runAt≈+30天` 排入 |
 | AC-2（撤銷申請成功） | ✅ 整合測試＋瀏覽器驗證：`deletionRequestedAt` 清空，稽核事件寫入 |
-| AC-3（背景工作到期執行，真刪除） | ✅ 整合測試（以直接呼叫 `permanentlyDeleteAccount()` 模擬到期，非真實等待 30 天，見下方誠實記錄）：帳號名下專案／文件／對話等從屬資料與 `users` 本列皆確實刪除 |
+| AC-3（背景工作到期執行，真刪除） | ✅ 整合測試＋**正式站真實 Worker 驗證**（見下方部署驗證段落）：帳號名下專案／文件／對話等從屬資料與 `users` 本列皆確實刪除 |
 | AC-4（撤銷後不誤刪，防競態） | ✅ 整合測試：撤銷後即使重新呼叫背景工作處理器，重新檢查發現已撤銷 → 直接跳過 |
 | AC-5（跨帳號存取稽核落地） | ✅ 整合測試：`audit_events` 新增一列 `project_access_denied`，非僅 console 日誌 |
 | AC-6（稽核事件不含健康內容） | ✅ 整合測試：`metadata` 僅含白名單結構化欄位 |
-| AC-7（Storage 真刪除） | ✅ 整合測試：帳號名下已上傳文件對應 Storage 物件於永久刪除後確實不存在 |
-| AC-8（未登入保護） | ✅ 瀏覽器驗證：未帶 session 直接呼叫申請／撤銷端點皆回 401 `AUTH_REQUIRED` |
-| AC-9（UI） | ✅ 瀏覽器驗證：`/account` 頁面正確顯示確認流程與倒數提示 |
+| AC-7（Storage 真刪除） | ✅ 整合測試＋**正式站真實驗證**：帳號名下已上傳文件對應 Storage 物件於永久刪除後確實不存在 |
+| AC-8（未登入保護） | ✅ 瀏覽器驗證＋正式站驗證：未帶 session 直接呼叫申請／撤銷端點皆回 401 `AUTH_REQUIRED` |
+| AC-9（UI） | ✅ 本機＋正式站瀏覽器驗證：`/account` 頁面正確顯示確認流程與倒數提示 |
 | AC-10（日誌 P0） | ✅ 整合測試：刪除鏈全流程不將健康內容或 token 寫入 console |
 
 ### 端到端驗證（本機瀏覽器＋共用開發資料庫）
 用 Supabase Admin API 直接建立並確認的測試帳號（`register()` 走一般 `signUp()` 對 `.test.invalid` 網域回 `INVALID_EMAIL`，改用 Admin API 繞過，與正式站測試帳號建立手法一致）登入本機開發伺服器 → 至 `/account` 頁面，確認畫面顯示帳號 Email 與「刪除帳號」按鈕 → 點擊後彈出瀏覽器原生二次確認對話框（A141），確認 → `POST /api/auth/me/deletion` 回應成功，頁面即時切換為「帳號即將刪除」倒數提示區塊，正確顯示「您的帳號將於 2026 年 8 月 21 日永久刪除」（今日 2026-07-22＋30 天）→ 點擊「取消刪除申請」→ `DELETE /api/auth/me/deletion` 回應成功，頁面切回原本的刪除帳號區塊，確認 UI 狀態切換正確。另於頁面內直接 `fetch`（不帶 cookie）呼叫申請／撤銷兩端點，確認皆回 401 `AUTH_REQUIRED`（AC-8）。驗證完畢後測試帳號（含 Supabase Auth、`consent_records`）已全數清除。全專案 201 個測試（+9）／typecheck／lint／`pnpm build` 全綠。
 
-**誠實記錄（本輪 DOD 額外要求）**：AC-3（背景永久刪除）與 AC-4（防競態）皆以整合測試直接呼叫 `permanentlyDeleteAccount()` 驗證邏輯正確性，**未實測真實等待 30 天**——`runAt` 延遲排程機制本身（`WHERE run_at <= now()`）沿用 E2-F2 已驗證過的既有邏輯，本輪未額外驗證 Worker 在生產環境長時間運行後仍正確認領到期工作這件事（風險評估：與既有 `parse-document`／`standardize-document` 等既有 job type 使用同一套 `claimNext()` 邏輯，非新路徑，風險低）。**本輪範圍僅帳號層級刪除，既有專案層級刪除機制（E1-F4）未變動。**
+### 正式站部署驗證（2026-07-22）過程中發現並修正兩項真實缺陷
+Web／worker 兩 service 部署 commit `fc7e19e`（`RUNNING`）後，依 KB-025 不僅看 RUNNING 就結案，用 Supabase Admin API 建立正式站測試帳號，登入正式站、建立專案並上傳一份真實文件到 Storage → 至 `/account` 申請刪除，確認倒數提示日期正確 → 撤銷，確認 UI 正確復原（AC-1／AC-2 在正式生產環境成立）→ 直接 `fetch`（不帶 cookie）驗證未登入呼叫回 401（AC-8）→ 再次申請刪除，並用臨時腳本把該筆 `delete-account` 工作的 `run_at` 快轉到過去，模擬三十日寬限期到期，觀察正式站真實 Worker 是否認領並處理：
 
-下一步：確認 commit／push，之後進行正式站部署驗證。
+- **缺陷①（設計缺陷）**：Worker 成功處理完成後，用同一組帳密重新呼叫 `/api/auth/login`，**回應 200 登入成功**，且本地 `users` 列隨即透過既有 `syncUserVerification()` 的 upsert 邏輯重新出現——「永久刪除」形同未生效，因為 `permanentlyDeleteAccount()` 只刪本地 `users` 列，從未刪除 Supabase Auth 端的帳密憑證。修正：`AuthAdapter` 新增 `deleteUser()`，實測 `admin.auth.admin.deleteUser()` 對本專案新版不透明格式 `service_role` 金鑰正常運作（不受 `getUserById()` 已知限制影響，見 KB-009／KB-012），並於刪除本地 `users` 列**之前**呼叫（順序理由：若在之後才刪或失敗，重試時本地列已消失、`deletionRequestedAt` 檢查會提前以 `deleted:false` 短路跳過，永遠不會重試 Auth 刪除）。
+- **缺陷②（KB-025 同類型：環境變數缺漏）**：修正①部署後，重新走一次申請→快轉流程，Worker 這次**全數執行失敗**（3 次重試皆失敗，`errorName: "Error"`）。診斷：`getAuthAdapter()` 建構 `SupabaseAuthAdapter` 時一律需要 `SUPABASE_ANON_KEY`（即使 `deleteUser()` 本身只用得到 admin client），而 worker service 過去只用 `SUPABASE_URL`／`SUPABASE_SERVICE_ROLE_KEY`（供 Storage 使用），從未設定過 `SUPABASE_ANON_KEY`，`requireEnv()` 因而擲出例外。修正：比照 CLAUDE.md 機密處理鐵則，用腳本讀本機 `.env` 的值（`SUPABASE_ANON_KEY` 依專案文件記載為非機密，值與 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 相同）透過子行程呼叫 `zeabur variable create` 補上此變數，**全程未在任何工具輸出中印出該值或既有變數表**，重啟 worker 後生效。
+
+兩項缺陷修正後（commit `a99368a`），重新完整走過一次正式站流程並額外多跑一輪乾淨驗證：申請刪除（含真實文件上傳）→ 快轉 `run_at` → 正式站真實 Worker 於 448ms 內成功完成工作（`"status":"completed"`）→ 直接查正式站共用資料庫確認 `users`／`projects` 列與 Storage 物件皆確實刪除、`audit_events` 正確記下完整生命週期（`account_deletion_requested`→`account_deletion_completed`，最後一筆稽核事件於帳號本列刪除後仍可查詢，驗證 A138 於正式站成立）→ **重新用同一組帳密呼叫 `/api/auth/login`，回應 401 `AUTH_INVALID_CREDENTIALS`**，確認 Auth 身分已真正刪除、帳號不再能復活。全程三輪測試帳號（含 Supabase Auth）與正式站測試資料已全數清除。
+
+**誠實記錄（本輪 DOD 額外要求）**：AC-3／AC-7 最終以「快轉 `run_at` 到過去＋觀察正式站真實 Worker 認領處理」的方式驗證，**非真實等待 30 天**，但已透過正式站真實部署環境（而非本機模擬）跑過三次完整生命週期，且意外驗證了 Worker 對到期工作的認領邏輯與環境變數需求，找出並修正了兩項若未經此驗證步驟、只憑本機測試無法發現的真實生產環境缺陷。**本輪範圍僅帳號層級刪除，既有專案層級刪除機制（E1-F4）未變動。**
 
 ## Sprint 22 — E5-F4：看診摘要與資料匯出模組（C19/C20）✅ 實作＋測試＋瀏覽器驗證＋正式站部署驗證皆完成，正式結案
 
