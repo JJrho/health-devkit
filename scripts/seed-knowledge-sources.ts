@@ -13,6 +13,7 @@
  *
  * 冪等：以 title 判斷是否已存在，重複執行不會建立重複資料。
  */
+import "dotenv/config";
 import { pathToFileURL } from "url";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";

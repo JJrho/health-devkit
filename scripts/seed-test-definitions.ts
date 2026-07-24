@@ -8,6 +8,7 @@
  * 審閱下把醫學換算係數寫死進程式碼，那是後續迭代（可能需要專業人員審核）
  * 該做的事，不是本輪 MVP 該擅自決定的。
  */
+import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { testAliases, testDefinitionUnits, testDefinitions } from "@/db/schema";

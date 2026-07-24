@@ -221,10 +221,11 @@
 ## KB-033 惡意檔案掃描補上：VirusTotal API＋雜湊快取優先查詢
 
 - 類型：架構決策＋實作紀錄（Sprint 24，2026-07-22，E6-F2，A142）
-- 內容：KB-021 缺口本輪補上，選用 VirusTotal API（免費額度）而非自架 ClamAV，理由與 KB-022 一致的「用最低成本解法對應威脅模型」精神——本專案至今所有外部服務皆走受管 API 路線，不自架基礎設施。實作重點：先以檔案 SHA256 呼叫 `GET /files/{hash}` 查既有分析快取（EICAR 等常見測試樣本幾乎必中，不需等待新分析），未命中才呼叫 `POST /files` 上傳並輪詢 `GET /analyses/{id}` 直到 `status="completed"`（本輪輪詢預算約 30 秒，逾時視同失敗）。`completeUpload()` 於內容格式驗證通過、寫入正式 Storage 物件**之前**插入此步驟，判定為惡意（`stats.malicious>0` 或 `stats.suspicious>0`）或掃描本身逾時／出錯，一律 fail closed 轉 `upload_failed`，絕不在掃描不可用時靜默放行。
+- 內容：KB-021 缺口本輪補上，選用 VirusTotal API（免費額度）而非自架 ClamAV，理由與 KB-022 一致的「用最低成本解法對應威脅模型」精神——本專案至今所有外部服務皆走受管 API 路線，不自架基礎設施。實作重點：先以檔案 SHA256 呼叫 `GET /files/{hash}` 查既有分析快取（EICAR 等常見測試樣本幾乎必中，不需等待新分析），未命中才呼叫 `POST /files` 上傳並輪詢 `GET /analyses/{id}` 直到 `status="completed"`。`completeUpload()` 於內容格式驗證通過、寫入正式 Storage 物件**之前**插入此步驟，判定為惡意（`stats.malicious>0` 或 `stats.suspicious>0`）或掃描本身逾時／出錯，一律 fail closed 轉 `upload_failed`，絕不在掃描不可用時靜默放行。
+- **真實缺陷發現與修正（同輪 P0 e2e 驗證中）**：原訂輪詢預算 `POLL_MAX_ATTEMPTS=10`（約 30 秒）＋外層 `SCAN_TIMEOUT_MS=45_000`，是憑印象假設訂出、未經真實 API 驗證的數字。本機用真實 VirusTotal API 對一份從未被掃過的全新合法檔案完整測試，實測完整跑完 70+ 引擎需要 **39 秒**，超出原訂預算，導致合法檔案被 fail closed 誤判為 `FILE_SCAN_FAILED`（這是設計本身正確運作、但預算抓太緊的參數問題，非邏輯錯誤）。修正為 `POLL_MAX_ATTEMPTS=35`（約 105 秒）＋`SCAN_TIMEOUT_MS=120_000`（`src/adapters/virustotal/virustotal-scan-adapter.ts`／`src/modules/documents/service.ts`）。本機重測 30.7 秒完成；正式站對另一份全新檔案重測 19.5 秒完成（皆遠低於修正後的 120 秒外層預算）。
 - 已完成處置：`src/adapters/scan-adapter.ts`（介面）＋`src/adapters/virustotal/virustotal-scan-adapter.ts`（實作，`isClean(body): Promise<boolean>`，錯誤一律拋例外交呼叫端 fail closed）；`src/modules/documents/index.ts` 新增 `getScanAdapter()` 組裝點（`VIRUSTOTAL_API_KEY` 環境變數）。單元測試以 mock fetch 驗證雜湊快取命中／未命中上傳輪詢／逾時／API 錯誤四種情境（`tests/unit/virustotal-scan-adapter.test.ts`），另於 `documents-service.test.ts` 補上 `completeUpload()` 串接掃描層後的惡意判定／掃描失敗兩條整合測試。
 - 影響範圍：`DocumentErrorCode` 新增 `MALICIOUS_FILE_DETECTED`／`FILE_SCAN_FAILED` 兩種錯誤碼；`completeUpload()` 簽名新增 `scan: ScanAdapter` 參數，既有呼叫端（API 路由與全部既有測試檔）皆已同步更新。
-- 未來避免：`VIRUSTOTAL_API_KEY` 需要 PO 自行至 https://www.virustotal.com/gui/join-us 申請免費帳號取得（見 KNOWN_ISSUES.md）；正式上線前應實測真實流量是否超出免費額度上限。
+- 未來避免：`VIRUSTOTAL_API_KEY` 需要 PO 自行至 https://www.virustotal.com/gui/join-us 申請免費帳號取得（見 KNOWN_ISSUES.md）；正式上線前應實測真實流量是否超出免費額度上限。**外部服務的逾時／輪詢預算，只要有可能，一律用真實 API 對真實情境（尤其是「從未被處理過的全新輸入」這種最慢路徑）實測後才拍板，不要憑經驗或文件敘述估算**——本次差了近 3 倍（30 秒估算 vs 39 秒實測），差距足以讓 fail-closed 設計反過來誤傷合法使用者。
 
 ## KB-034 Docker daemon 啟動異常時的隔離資料庫替代方案：pglite（WASM 版 PostgreSQL）
 
@@ -240,6 +241,14 @@
 - 內容：docs/runbook.md 先前寫著「回滾前必須先確認備份（Supabase 每日備份＋PITR 依方案）」，本輪依 A145 要求查證 Supabase 官方文件後發現：**免費方案完全沒有自動每日備份**（官方建議免費方案使用者自行定期用 Supabase CLI `db dump` 匯出），**PITR 在任何方案都需額外付費加購**（Pro 方案起，加購價格約每月 100～400 美元不等，依保留天數）。本專案 Supabase 為免費方案，代表 runbook 先前這句話對本專案而言是不準確的——目前正式站資料庫沒有平台層級的還原安全網。
 - 已完成處置：docs/runbook.md 已更正為誠實描述現況，並建議正式資料量變大前優先評估「新增修正 migration」而非「回滾」，或升級方案／建立手動備份排程；KNOWN_ISSUES.md 已將此列為上線前應處理事項第 2 條。
 - 未來避免：任何涉及「這個平台服務有沒有備份／還原能力」的文件敘述，都應該實際查證官方文件對「目前實際使用的方案層級」的說明，不能用該平台付費方案的能力去描述免費方案（兩者常有巨大落差，這正是本次踩到的坑）。
+
+## KB-036 「永久刪除」帳號未刪 Supabase Auth 身分，導致原帳密仍可登入且本地列會復活
+
+- 類型：真實缺陷（Sprint 23，2026-07-22，E6-F1 正式站部署驗證時發現，commit `a99368a`）
+- 內容：`permanentlyDeleteAccount()` 初版只刪除本地 `users` 資料列，未同步刪除 Supabase Auth 端的帳密身分。正式站部署驗證時實測「永久刪除」流程跑完後，用同一組帳密仍可成功登入——且因既有登入流程的 `syncUserVerification()` upsert 邏輯會在偵測到 Auth 身分存在但本地列缺失時自動補回，本地 `users` 列因此在下次登入時「復活」，永久刪除形同沒有發生。本機測試（Fake adapter）完全沒發現，因為 Fake 的假 Auth adapter 本來就不會真的擋登入。
+- 已完成處置：`AuthAdapter` 介面新增 `deleteUser(userId): Promise<void>`（`src/adapters/auth-adapter.ts`），`SupabaseAuthAdapter` 實作呼叫 `admin.auth.admin.deleteUser(userId)`（`src/adapters/supabase-auth/supabase-auth-adapter.ts`；實測對本專案的新版不透明格式 `service_role` key 正常運作，不受 `getUserById()` 已知限制影響，見 KB-009／KB-012）；`permanentlyDeleteAccount()` 修正為**先呼叫 `auth.deleteUser()`、成功後才刪除本地 `users` 列**（`src/modules/account/deletion.ts`），確保重試安全且不會出現「Auth 已刪、本地列還在」或反過來的不一致中間態。修正後於正式站以真實 Worker 完整驗證三輪帳號永久刪除生命週期，關鍵驗證點是「刪除後重新登入應失敗」，實測回應 401 `AUTH_INVALID_CREDENTIALS`，確認 Auth 身分已真正移除。
+- 影響範圍：僅 `permanentlyDeleteAccount()` 到期執行永久刪除的路徑；三十日冷靜期申請／撤銷本身不受影響。此缺陷修正後部署，worker 隨即因缺少 `SUPABASE_ANON_KEY` 環境變數（`getAuthAdapter()` 建構 adapter 需要，worker 過去只設定 Storage 用得到的變數）導致全數工作失敗，屬 KB-025 記載的同類型缺口，已比照處置補上變數並重啟。
+- 未來避免：任何「刪除／停用使用者」的功能，只要系統同時存在**本地資料表**與**外部身分驗證服務**兩份使用者紀錄，就必須明確設計兩者的刪除順序與失敗回滾策略，並在測試中至少對真實（或高保真）Auth 服務跑一次端到端「刪除後應無法再登入」的驗證——純 Fake adapter 的單元測試無法揭露這類「本地狀態已清但外部身分仍存活」的缺口，這正是本專案 KB-025／KB-028 已多次強調「部署驗證不能只看服務 RUNNING，需真實功能驗證」原則的又一實例。
 
 ## 新紀錄模板
 （依方法論 13.2 節）
