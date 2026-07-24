@@ -1,7 +1,8 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type { QueueAdapter, StorageAdapter } from "@/adapters";
+import type { QueueAdapter, ScanAdapter, StorageAdapter } from "@/adapters";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
+import { withTimeout } from "@/lib/with-timeout";
 import { findOwnedProject } from "@/modules/projects";
 import { findOwnedDocument, type DocumentRow } from "./access";
 import { countPdfPages, detectFileType } from "./file-validation";
@@ -11,6 +12,12 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_PDF_PAGES = 30;
 const MAX_DOCUMENTS_PER_PROJECT = 200;
 const PREVIEW_URL_TTL_SECONDS = 300;
+/**
+ * E6-F2（KB-021）：掃描逾時預算，超過視同失敗（fail closed，AC-3）。
+ * 需大於 VirusTotalScanAdapter 內部輪詢預算（約 105 秒，見該檔註解），
+ * 否則會在 adapter 內部輪詢尚未逾時前就被這層外部逾時提前打斷。
+ */
+const SCAN_TIMEOUT_MS = 120_000;
 /** 可再次上傳分段／完成的狀態：uploading（首次或網路中斷）、upload_failed（內容驗證未過，換檔重試） */
 const RETRYABLE_STATUSES = new Set(["uploading", "upload_failed"]);
 
@@ -21,6 +28,8 @@ export type DocumentErrorCode =
   | "FILE_TOO_LARGE"
   | "FILE_TYPE_NOT_SUPPORTED"
   | "FILE_CORRUPTED"
+  | "MALICIOUS_FILE_DETECTED"
+  | "FILE_SCAN_FAILED"
   | "VERSION_CONFLICT";
 
 export type DocumentResult =
@@ -107,6 +116,7 @@ export async function uploadPart(
 export async function completeUpload(
   storage: StorageAdapter,
   queue: QueueAdapter,
+  scan: ScanAdapter,
   userId: string,
   projectId: string,
   documentId: string,
@@ -149,6 +159,21 @@ export async function completeUpload(
       await cleanupParts(storage, partKeys);
       return failUpload(document.id, "FILE_TOO_LARGE");
     }
+  }
+
+  // E6-F2（KB-021，AC-1～AC-3）：內容驗證通過的檔案仍須經惡意檔案掃描才能定案；
+  // 掃描判定惡意或掃描本身逾時／出錯，一律 fail closed 轉 upload_failed，
+  // 絕不在掃描不可用時靜默放行（安全優先於可用性）。
+  let isClean: boolean;
+  try {
+    isClean = await withTimeout(scan.isClean(combined), SCAN_TIMEOUT_MS);
+  } catch {
+    await cleanupParts(storage, partKeys);
+    return failUpload(document.id, "FILE_SCAN_FAILED");
+  }
+  if (!isClean) {
+    await cleanupParts(storage, partKeys);
+    return failUpload(document.id, "MALICIOUS_FILE_DETECTED");
   }
 
   const finalKey = finalObjectKey(projectId, document.id, detectedType);

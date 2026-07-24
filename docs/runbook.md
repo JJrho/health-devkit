@@ -16,7 +16,7 @@
 ## 2. 回滾
 
 - **程式回滾**：Zeabur 服務頁 → Deployments → 選前一個成功版本 Redeploy；或 `git revert <壞 commit>` 後 push（偏好後者，保持 git 與線上一致）。
-- **資料庫回滾**：`pnpm db:rollback`（回滾最後一個 migration；機制見 scripts/rollback.ts）。⚠️ 破壞性操作——回滾會 DROP 對應表；正式資料出現後，回滾前必須先確認備份（Supabase 每日備份＋PITR 依方案）。
+- **資料庫回滾**：`pnpm db:rollback`（回滾最後一個 migration；機制見 scripts/rollback.ts）。⚠️ 破壞性操作——回滾會 DROP 對應表。**⚠️ E6-F2 查證更正（2026-07-22）：本專案 Supabase 為免費方案，免費方案完全沒有自動每日備份、也不提供 PITR（皆為付費方案專屬，見 KNOWN_ISSUES.md）**——回滾前沒有平台層級安全網可用，務必先手動 `supabase db dump` 或等價方式匯出，且應優先評估「新增修正 migration」取代「回滾」，非必要不回滾正式站。
 - **原則**：程式與 migration 一起回滾時，先程式後資料庫。
 
 ## 3. 環境變數與金鑰輪替

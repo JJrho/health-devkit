@@ -168,12 +168,15 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E6-F1 稽核事件與刪除鏈模組完成，正式結案（2026-07-22，Sprint 23，Feature 20/20）**：E6 稽核基座第一個 Feature。新增 `audit_events` 表（`userId` 不設外鍵，A138，稽核紀錄須在帳號永久刪除後仍可查詢追溯）取代 A11 過渡期 `logger.warn` 作法；帳號刪除採三十日冷靜期，重用既有 `QueueAdapter.enqueue()` 的 `runAt` 延遲排程機制，不新增排程基礎設施（A135）；撤銷不直接操作 `queue_jobs` 列，改由到期執行前重新檢查 `deletionRequestedAt`（A136，防競態）；正式永久刪除 FK 順序泛化自 `cleanupTestData()`（A139），**實作中額外發現並修正該測試輔助函式本身遺漏的缺口**——`consent_records` 對 `users` 為 `ON DELETE no action`，正式帳號永久刪除若不先清空會直接外鍵違反失敗。全專案 201 個測試（+9）／typecheck／lint／`pnpm build` 全綠。已 commit（`fc7e19e`）＋push＋**正式站部署驗證通過，過程中發現並修正兩項本機測試未能發現的真實缺陷**：①`permanentlyDeleteAccount()` 原僅刪本地 `users` 列，未刪 Supabase Auth 端帳密憑證——正式站實測「永久刪除」後用同一組帳密仍可登入成功，`users` 列並透過既有 `syncUserVerification()` upsert 邏輯復活，修正為 `AuthAdapter` 新增 `deleteUser()`（實測 `admin.auth.admin.deleteUser()` 對本專案不透明格式金鑰正常運作，不受 `getUserById()` 已知限制影響）並置於刪除本地 `users` 列之前呼叫，確保重試安全；②修正①部署後 worker 因缺少 `SUPABASE_ANON_KEY` 環境變數（`getAuthAdapter()` 建構 adapter 一律需要，worker 過去只設定 Storage 用得到的兩個變數）導致全數工作失敗，屬 KB-025 記載的同類型缺陷，已補上變數並重啟 worker。修正後（commit `a99368a`）於正式站以真實 Worker 完整驗證三輪帳號永久刪除生命週期，含「重新登入應失敗」的關鍵驗證點（實測回應 401 `AUTH_INVALID_CREDENTIALS`），確認 Auth 身分已真正刪除。
 
-下一步：開 Sprint 24 DOR（E6-F2，全案最後一個 Sprint）。
+**E6-F2 整合測試與部署交付包實作＋測試＋本機瀏覽器驗證完成（2026-07-22，Sprint 24，全案最後一個 Feature，尚未 commit）**：惡意檔案掃描（KB-021 缺口補上，A142，VirusTotal API＋雜湊快取優先查詢，fail closed）；P0 e2e 三條黃金路徑聚焦跨模組串接而非窮舉 Edge/Abuse Cases（A143）；migration／rollback rehearsal 因本機 Docker 異常改用 pglite 隔離環境，16 筆 migration 全套用全回滾皆乾淨（A144）；查證 Supabase 免費方案無自動備份無 PITR，更正 runbook 先前不準確的敘述（A145）；法律審查排除於本輪範圍，僅整理待審查清單（A146）；新增 `KNOWN_ISSUES.md` 彙整開放中已知限制（A147）；7 個代表性頁面無障礙抽查零違規（A148）。**P0 e2e 驗證過程中發現並修正一項真實缺陷**：掃描逾時預算原訂過緊（30 秒輪詢），本機用真實 VirusTotal API 對全新合法檔案完整測試時實測需 39 秒，導致合法檔案被誤判為 `FILE_SCAN_FAILED`；修正輪詢預算至約 105 秒後，另一份全新隨機檔案 30.7 秒內成功完成掃描，UI 同時保留舊失敗紀錄與新成功紀錄互為對照。全專案 208 個測試（+7）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整驗證三條黃金路徑與跨帳號隔離回歸（6 條路徑皆 403）。
+
+下一步：確認 commit／push，之後進行正式站部署驗證（全案最後一次部署驗證）。
 
 ## 16. 相關文件索引
 
 - 上游完整規格：archive/個人健康檢查管理平台_規格整理_v1_2_2.md（含 §29 BDD、§30 Edge、§31 Abuse、§33 Stage 計畫）
 - 技術選型：04_TECHNICAL_SPEC.md；Clarify 清單：CLARIFY_QUESTIONS.md
+- 部署與事故處置：docs/runbook.md；**已知限制彙整（上線前必讀）：KNOWN_ISSUES.md（Sprint 24，A147）**
 
 ## 17. Clarify 決議定案值（C1–C22，2026-07-11 全數採建議預設值）
 

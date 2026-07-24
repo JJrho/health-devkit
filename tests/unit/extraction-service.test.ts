@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
+import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, ScanAdapter, StorageAdapter } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
 import { documents, extractedItemEdits, extractedItems, users } from "@/db/schema";
 import { createProject } from "@/modules/projects";
@@ -58,6 +58,12 @@ class FakeQueueAdapter implements QueueAdapter {
   }
 }
 
+class FakeScanAdapter implements ScanAdapter {
+  async isClean(): Promise<boolean> {
+    return true;
+  }
+}
+
 async function seedUser(): Promise<string> {
   const id = randomUUID();
   await getDb().insert(users).values({ id, email: `extract-${id}@projects.test.invalid` });
@@ -98,7 +104,7 @@ async function setupUploadedDocument(
   });
   if (!session.ok) throw new Error("setup failed");
   await uploadPart(storage, ownerId, projectId, session.document.id, 1, pdfBytes);
-  const completed = await completeUpload(storage, queue, ownerId, projectId, session.document.id, 1);
+  const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, projectId, session.document.id, 1);
   if (!completed.ok) throw new Error("setup failed: complete");
   return completed.document.id;
 }

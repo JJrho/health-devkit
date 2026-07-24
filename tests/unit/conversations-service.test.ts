@@ -10,6 +10,7 @@ import type {
   LlmStreamRequest,
   QueueAdapter,
   QueueJobView,
+  ScanAdapter,
   StorageAdapter,
 } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
@@ -106,6 +107,12 @@ class FakeQueueAdapter implements QueueAdapter {
   }
 }
 
+class FakeScanAdapter implements ScanAdapter {
+  async isClean(): Promise<boolean> {
+    return true;
+  }
+}
+
 async function seedUser(): Promise<string> {
   const id = randomUUID();
   await getDb().insert(users).values({ id, email: `conv-${id}@projects.test.invalid` });
@@ -152,7 +159,7 @@ async function setupConfirmedObservation(ownerId: string, projectId: string): Pr
   pdfDoc.addPage();
   const pdfBytes = Buffer.from(await pdfDoc.save());
   await uploadPart(storage, ownerId, projectId, session.document.id, 1, pdfBytes);
-  const completed = await completeUpload(storage, queue, ownerId, projectId, session.document.id, 1);
+  const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, projectId, session.document.id, 1);
   if (!completed.ok) throw new Error("setup failed: complete");
   await getDb().update(documents).set({ status: "review_required" }).where(eq(documents.id, completed.document.id));
   await getDb().insert(extractedItems).values({

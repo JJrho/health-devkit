@@ -12,3 +12,4 @@ export type {
   ClaimedJob,
   QueueJobView,
 } from "./queue-adapter";
+export type { ScanAdapter } from "./scan-adapter";

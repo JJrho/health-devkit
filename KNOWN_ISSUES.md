@@ -1,0 +1,32 @@
+# 已知限制 Known Issues
+
+> E6-F2（A147）彙整版：只列**目前仍開放（未解決）**的已知限制，供 PO 與未來維護者快速掌握現況，
+> 不需翻閱整本 09_KNOWLEDGE_BASE.md（該檔含大量已解決的歷史事故記錄）。
+> 每項附對應 KB 編號可查完整脈絡。最後更新：2026-07-22（Sprint 24）。
+
+## 上線前必須處理（硬門檻）
+
+1. **台灣個資與醫療服務法律審查未完成**——12_RELEASE_CHECKLIST.md 與上游規格 §27.3 明列的上線硬門檻，需要人類法律專業判斷，非本專案 AI Agent 可完成或代為判斷的工作範圍（Sprint 24 A146）。待審查文件：隱私權政策草稿、資料處理流程說明、既有安全措施清單（本文件＋09_KNOWLEDGE_BASE.md）。
+
+2. **Supabase 免費方案無自動備份、無 PITR**（Sprint 24 查證）——免費方案完全沒有每日自動備份，也不提供時間點還原（Point-in-Time Recovery），皆為付費方案專屬功能。目前唯一的資料安全網是：①migration 皆有對應 down migration（可回滾 schema，但不還原資料）、②Storage 物件無版本控制。若正式站資料庫發生資料損毀或誤刪，**目前沒有平台層級的還原路徑**。建議上線前評估：升級 Supabase 方案取得自動備份，或建立定期 `supabase db dump` 手動備份排程。
+
+## 已知安全與資料限制
+
+3. **RLS 政策未實際生效**（KB-018）：`projects` 表已建立 RLS 政策，但連線角色 `postgres` 具 `rolbypassrls=true`，政策對本專案自身連線不生效；真正防線是應用層四層權限鏈（已在每個 Feature 反覆驗證，Sprint 24 P0 e2e 亦重新確認 6 條跨帳號存取路徑一律 403）。修法需另建專用角色＋雙 service 環境變數同步更新，待 PO 決定處理時機。
+
+4. **未驗證帳號無法登入，與 C6 規格牴觸**（KB-020）：全新註冊、未點驗證信的帳號走真實 Supabase 登入會回 `email_not_confirmed`。PO 已於 2026-07-15 決定本輪不修，記錄為已知限制；修法需先確認 Supabase 關閉「Confirm email」設定後 `email_confirmed_at` 的實際行為（見 KB-020 完整路線圖）。
+
+5. **健檢文件覆蓋率天花板約 14%**（KB-023）：真實樣本 PoC 顯示 86% 的健檢報告為純掃描圖檔（無文字層），目前文字型解析管線無法處理，需等 OCR 上線（05_BACKLOG 已拍板維持原排程，非本次上線範圍）。
+
+6. **E4-F3 安全把關為顯示層級，非自動攔截**（A81）：對話中偵測到的可疑內容（如要求停藥、要求顯示內部規則等 Abuse Case）僅顯示提示，系統不自動封鎖對話或阻止 AI 回覆。語意層面「引用內容與 claim 是否一致」的深度核對（技術選型 §11.5）亦非本輪範圍，需額外 NLI 模型或二次 LLM 呼叫。
+
+## 已知體感／非阻塞限制
+
+7. **Google 登入同意畫面顯示 Supabase 專案網域，非自訂應用程式名稱**：需 PO 於 Google Cloud Console 另行設定 OAuth 同意畫面的應用程式名稱，純品牌體感問題，不影響功能。
+
+8. **惡意檔案掃描（VirusTotal）需要 PO 自行申請 API Key 並設定 `VIRUSTOTAL_API_KEY`**（Sprint 24，E6-F2，KB-021 缺口本輪已補上）：免費額度上限請參考 VirusTotal 官方文件，若流量超出免費額度需評估升級方案；掃描服務逾時或無金鑰時，上傳一律 fail closed 直接拒絕（見 `src/modules/documents/service.ts` `completeUpload()`），不會靜默放行未掃描檔案。
+
+## 已解決／已拍板不處理（僅供對照，詳見 09_KNOWLEDGE_BASE.md）
+
+- KB-021 惡意檔案掃描缺口：**Sprint 24 本輪已解決**（VirusTotal API）。
+- KB-009／KB-012／KB-025／KB-026／KB-028／KB-029／KB-031／KB-032：實作期間發現並修正的技術缺陷，皆已解決，僅作為「未來避免」教訓保留在 KB。

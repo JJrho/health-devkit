@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
-import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
+import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, ScanAdapter, StorageAdapter } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
 import { documents, users } from "@/db/schema";
 import { createProject } from "@/modules/projects";
@@ -56,6 +56,15 @@ class FakeQueueAdapter implements QueueAdapter {
   async fail(): Promise<void> {}
   async getJob(): Promise<QueueJobView | null> {
     return null;
+  }
+}
+
+/** E6-F2（A142）：mode 可模擬乾淨／偵測到惡意／掃描服務出錯三種情境 */
+class FakeScanAdapter implements ScanAdapter {
+  constructor(private readonly mode: "clean" | "malicious" | "error" = "clean") {}
+  async isClean(): Promise<boolean> {
+    if (this.mode === "error") throw new Error("模擬掃描服務逾時／出錯");
+    return this.mode === "clean";
   }
 }
 
@@ -120,7 +129,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     const partResult = await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
     expect(partResult.ok).toBe(true);
 
-    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(completed).toMatchObject({
       ok: true,
       document: { status: "processing", mimeType: "application/pdf" },
@@ -128,6 +137,69 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     expect(queue.enqueued).toEqual([
       { type: "parse-document", payload: { documentId: session.document.id } },
     ]);
+  });
+
+  it("E6-F2 AC-2：掃描判定惡意 → MALICIOUS_FILE_DETECTED，狀態轉 upload_failed，暫存分段已清除", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "文件測試專案");
+    const session = await createUploadSession(ownerId, project.id, {
+      idempotencyKey: randomUUID(),
+      filename: "eicar-test.pdf",
+    });
+    if (!session.ok) throw new Error("setup failed");
+
+    const pdfBytes = await makePdf(1);
+    await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
+    const completed = await completeUpload(
+      storage,
+      queue,
+      new FakeScanAdapter("malicious"),
+      ownerId,
+      project.id,
+      session.document.id,
+      1,
+    );
+    expect(completed).toEqual({ ok: false, code: "MALICIOUS_FILE_DETECTED" });
+
+    const rows = await getDb()
+      .select()
+      .from(documents)
+      .where(eq(documents.id, session.document.id));
+    expect(rows[0]?.status).toBe("upload_failed");
+    expect(rows[0]?.storageKey).toBeNull(); // 惡意檔案不得寫入正式物件位置
+  });
+
+  it("E6-F2 AC-3：掃描服務逾時／出錯 → FILE_SCAN_FAILED，fail closed 不放行", async () => {
+    const storage = new FakeStorageAdapter();
+    const queue = new FakeQueueAdapter();
+    const ownerId = await seedUser();
+    const project = await createProject(ownerId, "文件測試專案");
+    const session = await createUploadSession(ownerId, project.id, {
+      idempotencyKey: randomUUID(),
+      filename: "scan-unavailable.pdf",
+    });
+    if (!session.ok) throw new Error("setup failed");
+
+    const pdfBytes = await makePdf(1);
+    await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
+    const completed = await completeUpload(
+      storage,
+      queue,
+      new FakeScanAdapter("error"),
+      ownerId,
+      project.id,
+      session.document.id,
+      1,
+    );
+    expect(completed).toEqual({ ok: false, code: "FILE_SCAN_FAILED" });
+
+    const rows = await getDb()
+      .select()
+      .from(documents)
+      .where(eq(documents.id, session.document.id));
+    expect(rows[0]?.status).toBe("upload_failed");
   });
 
   it("AC-4：偽造副檔名但內容不符（非 PDF/JPG/PNG）回 FILE_TYPE_NOT_SUPPORTED，狀態轉 upload_failed", async () => {
@@ -143,7 +215,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const notAFile = Buffer.from("這只是一段純文字，不是任何合法格式的檔案內容");
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, notAFile);
-    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TYPE_NOT_SUPPORTED" });
 
     const rows = await getDb()
@@ -166,7 +238,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const pdfBytes = await makePdf(31);
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, pdfBytes);
-    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TOO_LARGE" });
   });
 
@@ -183,7 +255,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
 
     const oversized = makePng(21 * 1024 * 1024);
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, oversized);
-    const completed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(completed).toEqual({ ok: false, code: "FILE_TOO_LARGE" });
   }, 15000);
 
@@ -199,11 +271,11 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     if (!session.ok) throw new Error("setup failed");
 
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, Buffer.from("bad"));
-    const failed = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const failed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(failed.ok).toBe(false);
 
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, makePng());
-    const retried = await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    const retried = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
     expect(retried).toMatchObject({ ok: true, document: { status: "processing" } });
   });
 
@@ -247,7 +319,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
       await uploadPart(storage, ownerId, projectB.id, session.document.id, 1, makePng()),
     ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
     expect(
-      await completeUpload(storage, queue, ownerId, projectB.id, session.document.id, 1),
+      await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, projectB.id, session.document.id, 1),
     ).toEqual({ ok: false, code: "PROJECT_ACCESS_DENIED" });
     expect(await deleteDocument(storage, ownerId, projectB.id, session.document.id)).toEqual({
       ok: false,
@@ -316,7 +388,7 @@ describe.skipIf(!hasDb)("documents module（整合，需 DATABASE_URL）", () =>
     });
     if (!session.ok) throw new Error("setup failed");
     await uploadPart(storage, ownerId, project.id, session.document.id, 1, makePng());
-    await completeUpload(storage, queue, ownerId, project.id, session.document.id, 1);
+    await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, project.id, session.document.id, 1);
 
     const preview = await getPreviewUrl(storage, ownerId, project.id, session.document.id);
     expect(preview.ok && preview.url).toContain("signed=1");

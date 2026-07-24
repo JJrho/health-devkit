@@ -2,7 +2,7 @@ import { apiError, apiOk } from "@/lib/api-response";
 import { withErrorEnvelope } from "@/lib/api-handler";
 import { attachSlidingCookie, requireSession } from "@/lib/require-session";
 import { auditAccessDenied } from "@/modules/projects";
-import { completeUpload, getQueueAdapter, getStorageAdapter } from "@/modules/documents";
+import { completeUpload, getQueueAdapter, getScanAdapter, getStorageAdapter } from "@/modules/documents";
 
 type Context = { params: Promise<{ id: string; documentId: string }> };
 
@@ -10,6 +10,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   FILE_TOO_LARGE: "檔案超過可上傳大小（單檔 20MB、PDF 30 頁），請確認後再試一次。",
   FILE_TYPE_NOT_SUPPORTED: "此檔案格式目前不支援，僅接受 PDF、JPG、PNG。",
   FILE_CORRUPTED: "無法讀取這個檔案，可能已損毀，請確認後再試一次。",
+  MALICIOUS_FILE_DETECTED: "這個檔案被判定為不安全，已拒絕上傳。若您確認檔案無虞，請聯絡我們。",
+  FILE_SCAN_FAILED: "安全掃描暫時無法完成，請稍後再試一次。",
   INVALID_REQUEST: "這個上傳會話已完成或已取消，無法再次完成。",
 };
 
@@ -32,6 +34,7 @@ export const POST = withErrorEnvelope<Context>(async (request, requestId, contex
   const result = await completeUpload(
     getStorageAdapter(),
     getQueueAdapter(),
+    getScanAdapter(),
     auth.userId,
     id,
     documentId,

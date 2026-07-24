@@ -132,6 +132,7 @@
 - 影響範圍：任何通過格式驗證的 PDF/JPG/PNG（即使內嵌惡意 payload，只要檔案結構合法）都會被接受並存入 Storage，供之後預覽／下載。
 - 未來處理：建議排入 E6-F2（整合測試與部署交付包，上線前安全項目集中處）或另立待辦；技術選項包括 ClamAV（自架或雲端 API）、VirusTotal API、或 Storage 供應商內建掃描（需查證 Supabase Storage 是否有對應功能）。
 - 未來避免：**規劃階段若上游規格明列某項安全需求，即使 Backlog 外部依賴欄位沒列到，實作時也要主動核對規格全文並登記為缺口**，不能因為 Backlog 沒寫就當作不存在（KB-021 本身就是 sprint-06-dor.md 第 13 節「A21 需在 SPRINT_LOG 與 KB 明確記錄」的落實）。
+- **✅ 已解決（Sprint 24，2026-07-22，E6-F2，A142）**：改用 VirusTotal API（`src/adapters/virustotal/virustotal-scan-adapter.ts`），`completeUpload()` 於內容驗證通過後、寫入正式 Storage 物件前插入掃描步驟，判定惡意或掃描服務逾時／出錯一律 fail closed 轉 `upload_failed`，詳見 KB-033。
 
 ## KB-022 惡意 PDF 解析防護：用逐工作逾時取代訊號比對式掃毒（E2-F2 前置決策）
 - 類型：架構決策（Sprint 7 DOR 制定前，2026-07-16，PO 與 AI 討論後拍板）
@@ -216,6 +217,29 @@
 - 已完成處置：把 `findOwnedPlan()` 回傳型別改為 `{ok:true, plan} | {ok:false, code:"PROJECT_ACCESS_DENIED"} | {ok:false, code:"NOT_FOUND"}`，比照 `findOwnedObservation()` 的兩段式判斷，所有呼叫點同步更新為 `const found = await findOwnedPlan(...); if (!found.ok) return found;`。修正後 AC-8 測試通過。
 - 影響範圍：任何未來新增的「四層鏈第 3 層子資源查找」helper（如 E5-F2 的 check-ins／symptom_events、E5-F3 的 plan_reviews）都適用同一原則——複製既有 helper 當範本時，優先參照 `findOwnedObservation()` 的兩段式寫法，而非 `findOwnedConversation()` 的單一 null 寫法（後者只在呼叫端有額外把關時才安全，容易被誤以為是通用範本）。
 - 未來避免：新增子資源存取 helper 時，測試優先寫「跨帳號存取應得到 `PROJECT_ACCESS_DENIED`」與「同帳號但資源不存在應得到 `NOT_FOUND`」兩條分開的斷言（而非只驗證 `ok:false`），這類錯誤在型別層面不會被抓到（兩者都是合法的 `{ok:false}` 聯集成員），只有跑實際案例才會現形——本次正是測試先寫好兩種情境的明確斷言，才在實作階段就攔下這個缺陷。
+
+## KB-033 惡意檔案掃描補上：VirusTotal API＋雜湊快取優先查詢
+
+- 類型：架構決策＋實作紀錄（Sprint 24，2026-07-22，E6-F2，A142）
+- 內容：KB-021 缺口本輪補上，選用 VirusTotal API（免費額度）而非自架 ClamAV，理由與 KB-022 一致的「用最低成本解法對應威脅模型」精神——本專案至今所有外部服務皆走受管 API 路線，不自架基礎設施。實作重點：先以檔案 SHA256 呼叫 `GET /files/{hash}` 查既有分析快取（EICAR 等常見測試樣本幾乎必中，不需等待新分析），未命中才呼叫 `POST /files` 上傳並輪詢 `GET /analyses/{id}` 直到 `status="completed"`（本輪輪詢預算約 30 秒，逾時視同失敗）。`completeUpload()` 於內容格式驗證通過、寫入正式 Storage 物件**之前**插入此步驟，判定為惡意（`stats.malicious>0` 或 `stats.suspicious>0`）或掃描本身逾時／出錯，一律 fail closed 轉 `upload_failed`，絕不在掃描不可用時靜默放行。
+- 已完成處置：`src/adapters/scan-adapter.ts`（介面）＋`src/adapters/virustotal/virustotal-scan-adapter.ts`（實作，`isClean(body): Promise<boolean>`，錯誤一律拋例外交呼叫端 fail closed）；`src/modules/documents/index.ts` 新增 `getScanAdapter()` 組裝點（`VIRUSTOTAL_API_KEY` 環境變數）。單元測試以 mock fetch 驗證雜湊快取命中／未命中上傳輪詢／逾時／API 錯誤四種情境（`tests/unit/virustotal-scan-adapter.test.ts`），另於 `documents-service.test.ts` 補上 `completeUpload()` 串接掃描層後的惡意判定／掃描失敗兩條整合測試。
+- 影響範圍：`DocumentErrorCode` 新增 `MALICIOUS_FILE_DETECTED`／`FILE_SCAN_FAILED` 兩種錯誤碼；`completeUpload()` 簽名新增 `scan: ScanAdapter` 參數，既有呼叫端（API 路由與全部既有測試檔）皆已同步更新。
+- 未來避免：`VIRUSTOTAL_API_KEY` 需要 PO 自行至 https://www.virustotal.com/gui/join-us 申請免費帳號取得（見 KNOWN_ISSUES.md）；正式上線前應實測真實流量是否超出免費額度上限。
+
+## KB-034 Docker daemon 啟動異常時的隔離資料庫替代方案：pglite（WASM 版 PostgreSQL）
+
+- 類型：工具技巧（Sprint 24，2026-07-22，E6-F2 migration rehearsal 演練時發現）
+- 內容：E6-F2 A144 要求 migration／rollback rehearsal 在與正式站完全隔離的環境執行（`db:rollback` 會 `DROP` 資料表，絕不可對正式站共用資料庫演練）。原計畫用 `docker run postgres:16`，但本機 Docker Desktop 啟動異常（daemon 持續無回應，等待數分鐘未見改善），改用 `@electric-sql/pglite`（真實 PostgreSQL 引擎編譯為 WASM，`drizzle-orm` 原生支援其 driver 與 migrator）——完全不需背景服務／daemon，`new PGlite()` 即為一個乾淨的一次性 Postgres 實例，用完即棄。
+- 已知限制：pglite 未內建 `pgvector` 擴充（本專案 `CREATE EXTENSION vector` 僅為 E4-F1 預留、至今無任何欄位實際使用 vector 型別，見 A54，故略過不影響驗證真實性）；`pg_trgm`（KB-029 實際使用中）則可透過 `@electric-sql/pglite/contrib/pg_trgm` 匯入模組於建構時載入，正常運作。
+- 已完成處置：以自寫的簡易 SQL 語句執行器（依 `--> statement-breakpoint` 或分號換行分句，略過 vector 擴充語句）依序套用全部 16 筆 migration（成功建立 28 張表）、再依序套用全部 down migration（成功回滾至 0 張業務表），完整驗證本專案 migration 鏈路可乾淨雙向。
+- 未來避免：往後任何需要「一次性、拋棄式、與正式站完全隔離」的 PostgreSQL 測試環境（例如未來 Sprint 的 migration 演練），優先評估 `pglite` 而非 Docker——後者依賴本機 daemon 可用性，前者是純 Node 套件、零外部依賴、啟動即用。`@electric-sql/pglite` 已留在 `devDependencies`。
+
+## KB-035 Supabase 免費方案完全沒有自動備份，也不提供 PITR（查證結果）
+
+- 類型：查證結果／已知限制（Sprint 24，2026-07-22，E6-F2 A145）
+- 內容：docs/runbook.md 先前寫著「回滾前必須先確認備份（Supabase 每日備份＋PITR 依方案）」，本輪依 A145 要求查證 Supabase 官方文件後發現：**免費方案完全沒有自動每日備份**（官方建議免費方案使用者自行定期用 Supabase CLI `db dump` 匯出），**PITR 在任何方案都需額外付費加購**（Pro 方案起，加購價格約每月 100～400 美元不等，依保留天數）。本專案 Supabase 為免費方案，代表 runbook 先前這句話對本專案而言是不準確的——目前正式站資料庫沒有平台層級的還原安全網。
+- 已完成處置：docs/runbook.md 已更正為誠實描述現況，並建議正式資料量變大前優先評估「新增修正 migration」而非「回滾」，或升級方案／建立手動備份排程；KNOWN_ISSUES.md 已將此列為上線前應處理事項第 2 條。
+- 未來避免：任何涉及「這個平台服務有沒有備份／還原能力」的文件敘述，都應該實際查證官方文件對「目前實際使用的方案層級」的說明，不能用該平台付費方案的能力去描述免費方案（兩者常有巨大落差，這正是本次踩到的坑）。
 
 ## 新紀錄模板
 （依方法論 13.2 節）

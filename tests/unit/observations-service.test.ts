@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { PDFDocument } from "pdf-lib";
-import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, StorageAdapter } from "@/adapters";
+import type { ClaimedJob, EnqueueInput, QueueAdapter, QueueJobView, ScanAdapter, StorageAdapter } from "@/adapters";
 import { getDb, closePool } from "@/db/client";
 import {
   documents,
@@ -63,6 +63,12 @@ class FakeQueueAdapter implements QueueAdapter {
   async fail(): Promise<void> {}
   async getJob(): Promise<QueueJobView | null> {
     return null;
+  }
+}
+
+class FakeScanAdapter implements ScanAdapter {
+  async isClean(): Promise<boolean> {
+    return true;
   }
 }
 
@@ -128,7 +134,7 @@ async function setupReviewRequiredDocument(
   pdfDoc.addPage();
   const pdfBytes = Buffer.from(await pdfDoc.save());
   await uploadPart(storage, ownerId, projectId, session.document.id, 1, pdfBytes);
-  const completed = await completeUpload(storage, queue, ownerId, projectId, session.document.id, 1);
+  const completed = await completeUpload(storage, queue, new FakeScanAdapter(), ownerId, projectId, session.document.id, 1);
   if (!completed.ok) throw new Error("setup failed: complete");
 
   await getDb()
