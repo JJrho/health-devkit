@@ -6,6 +6,8 @@
 >
 > 跟快速版一樣：這個系統**沒有「後台管理」介面**，這份手冊完全是給**使用者本人**看的操作說明，不涉及任何管理員後台。
 
+**網站網址：👉 [https://health-devkit.zeabur.app](https://health-devkit.zeabur.app)**
+
 ---
 
 ## 目錄
