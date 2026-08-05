@@ -1,0 +1,84 @@
+# E8-F1（sprints/sprint-27-dor.md）：每日自動備份，資料庫（public schema）＋
+# Storage 全量，打包上傳 Google Drive，並清除超過 14 天的舊備份。
+# UTC 18:00 = 台灣時間（UTC+8）凌晨 2:00。可於 GitHub Actions 頁面手動觸發
+# （workflow_dispatch），驗收與臨時補跑皆用此方式。
+name: 每日自動備份
+
+on:
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    # A156：一次性 Postgres 服務容器，僅用於驗證資料庫備份「真的能還原」，
+    # 與正式站資料庫完全隔離，用完即棄（比照 KB-034 隔離環境驗證原則）。
+    services:
+      restore-target:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
+      - name: 安裝 postgresql-client（pg_dump／psql）
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: 設定日期標籤
+        id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: 資料庫備份（AC-1，僅 public schema，A152）
+        env:
+          SUPABASE_DB_URL_BACKUP: ${{ secrets.SUPABASE_DB_URL_BACKUP }}
+        run: |
+          pg_dump "$SUPABASE_DB_URL_BACKUP" \
+            --schema=public --no-owner --no-privileges \
+            -f "db-backup-${{ steps.date.outputs.today }}.sql"
+
+      - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
+        run: |
+          set -e
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" \
+            -v ON_ERROR_STOP=1 -f "db-backup-${{ steps.date.outputs.today }}.sql"
+          TABLE_COUNT=$(psql "postgresql://postgres:postgres@localhost:5432/postgres" \
+            -t -c "select count(*) from information_schema.tables where table_schema='public';" | tr -d ' ')
+          echo "還原後 public schema 資料表數：$TABLE_COUNT"
+          if [ "$TABLE_COUNT" -lt 24 ]; then
+            echo "::error::還原後資料表數（$TABLE_COUNT）少於本專案已知的 24 張表，還原驗證失敗"
+            exit 1
+          fi
+
+      - name: Storage 備份（AC-3）
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm exec tsx scripts/backup/dump-storage.ts "storage-backup-${{ steps.date.outputs.today }}.zip"
+
+      - name: 上傳 Google Drive＋清除舊備份（AC-4／AC-5）
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: |
+          pnpm exec tsx scripts/backup/upload-to-drive.ts \
+            "db-backup-${{ steps.date.outputs.today }}.sql" \
+            "storage-backup-${{ steps.date.outputs.today }}.zip"

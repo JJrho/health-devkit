@@ -10,3 +10,7 @@ coverage/
 .env.production
 .DS_Store
 Thumbs.db
+
+# E8-F1：本機測試備份腳本時產生的暫存檔，絕不進版控
+db-backup-*.sql
+storage-backup-*.zip
