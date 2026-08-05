@@ -11,7 +11,8 @@
 2. ✅ 憲法草案、SDD 精煉版草案、Clarify 清單完成
 3. ✅ Clarify C1–C22 決議（archive/previous_decisions/）
 4. ✅ 粗估 17／精估 24；WBS 三層拆解＋三輪檢查通過（05_BACKLOG、13_ROADMAP）
-5. 🔵 **← 現在：Sprint 1（E1-F1 前半，技術棧 PoC）進行中**（DOR：sprints/sprint-01-dor.md）
+5. ✅ **Sprint 1～24（E1–E6，全案 20 個原始 MVP Feature）全數完成，正式站部署驗證通過（2026-07-22，Sprint 24 結案）**——僅剩台灣個資與醫療法律審查（外部人工事項）為上線硬門檻，見 KNOWN_ISSUES.md
+6. 🔵 **← 現在：Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）進行中**（DOR：sprints/sprint-25-dor.md；取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面）
 
 ## 接手必讀順序
 02_CONSTITUTION → 03_SDD（含 §17 決議定案值）→ 05_BACKLOG → 13_ROADMAP → 06_DOR_DOD → 10_SYNC

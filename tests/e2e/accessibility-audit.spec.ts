@@ -2,11 +2,13 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 /**
- * E6-F2（AC-9，A148）：無障礙抽查——6 個代表性頁面，非逐頁全站稽核。
+ * E6-F2（AC-9，A148）：工作區頁面採 6 個代表性頁面抽查，非逐頁全站稽核。
  * 本專案十個工作區頁面共用同一套 UI 元件庫，代表性頁面通過即高機率其餘頁面
  * 因元件重用一致合格（見 sprints/sprint-24-dor.md A148 理由）。
+ * E7-F1（AC-4，sprints/sprint-25-dor.md）：公開站五頁全數納入（非抽查），
+ * 因頁數少、皆未登入可直接訪問，逐頁稽核成本低。
  * 僅檢查 WCAG 2.1/2.2 A／AA 等級違規（critical／serious／moderate 皆回報，
- * 但僅 critical／serious 視為未通過——AC-9 要求「無 Critical／Serious 等級違規」）。
+ * 但僅 critical／serious 視為未通過）。
  */
 const FAILING_IMPACTS = new Set(["critical", "serious"]);
 
@@ -32,6 +34,26 @@ test.describe("無障礙抽查（AC-9）", () => {
 
   test("登入頁", async ({ page }) => {
     const { failing, violations } = await auditPage(page, "/login");
+    expect(failing, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  test("隱私與資料安全頁（E7-F1）", async ({ page }) => {
+    const { failing, violations } = await auditPage(page, "/privacy");
+    expect(failing, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  test("能做什麼・不能做什麼頁（E7-F1）", async ({ page }) => {
+    const { failing, violations } = await auditPage(page, "/scope");
+    expect(failing, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  test("產品說明頁（E7-F1）", async ({ page }) => {
+    const { failing, violations } = await auditPage(page, "/about");
+    expect(failing, JSON.stringify(violations, null, 2)).toEqual([]);
+  });
+
+  test("來源與 AI 原則頁（E7-F1）", async ({ page }) => {
+    const { failing, violations } = await auditPage(page, "/ai-principles");
     expect(failing, JSON.stringify(violations, null, 2)).toEqual([]);
   });
 

@@ -26,6 +26,8 @@
 
 8. **惡意檔案掃描（VirusTotal）需要 PO 自行申請 API Key 並設定 `VIRUSTOTAL_API_KEY`**（Sprint 24，E6-F2，KB-021 缺口本輪已補上）：免費額度上限請參考 VirusTotal 官方文件，若流量超出免費額度需評估升級方案；掃描服務逾時或無金鑰時，上傳一律 fail closed 直接拒絕（見 `src/modules/documents/service.ts` `completeUpload()`），不會靜默放行未掃描檔案。
 
+9. **Hero 頁 OG 分享卡片缺 `og:image`**（Sprint 25，E7-F1，A151，KB-037）：`og:title`／`og:description` 已上線，但目前無任何圖片素材，`og:image` 留白。**PO 已確認列為部署後近期待辦、非下次大改版才處理**：待 PO 提供或指定一張「安靜、非行銷感的靜態圖」後，只需在 `src/app/page.tsx` 的 `metadata.openGraph` 補上 `images` 欄位即可，不需改動其餘結構。
+
 ## 已解決／已拍板不處理（僅供對照，詳見 09_KNOWLEDGE_BASE.md）
 
 - KB-021 惡意檔案掃描缺口：**Sprint 24 本輪已解決**（VirusTotal API）。

@@ -86,6 +86,18 @@
 
 公開站（Hero／說明／隱私／註冊登入）＋個人工作區十頁（上游 §6.2）。戰情頁六區塊版面採上游 §26 SVG；色彩規範採 §25（主色 #2563EB，狀態不得只靠顏色）。高齡優化：大字、高對比、少步驟、防重複提交、可列印（§3.3）。
 
+**公開站五頁（E7-F1，Sprint 25，2026-08-05）**：文字內容定案於 `14_PUBLIC_SITE_COPY.md`。
+
+| 路由 | 對應文案檔 | 內容 |
+|---|---|---|
+| `/` | 頁 4/5 | Hero 首頁，取代過渡版；含三個信任區塊連往下列三頁 |
+| `/privacy` | 頁 1/5 | 隱私與資料安全 |
+| `/scope` | 頁 2/5 | 能做什麼／不能做什麼（單頁兩區塊，A149） |
+| `/about` | 頁 3/5 | 產品說明 |
+| `/ai-principles` | 頁 5/5 | 來源與 AI 原則 |
+
+五頁皆為未登入可存取之公開頁；沿用既有 `blue-700` 色彩慣例，未新增色彩系統；OG meta（`og:title`／`og:description`）加在 `/` 之 metadata 匯出，`og:image` 本輪暫不提供（A151，見 sprints/sprint-25-dor.md）。
+
 ## 6. 資料欄位
 
 25 張主表清單見上游 §23（users…audit_events）。關鍵型別規則入憲法 §4（numeric、timestamptz、jsonb 座標、soft delete、integer version）。物件與狀態總表見上游 §17。
@@ -171,6 +183,8 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 **E6-F2 整合測試與部署交付包完成，正式結案，全案 20 個 Feature 全數完成（2026-07-22，Sprint 24，全案最後一個 Feature）**：惡意檔案掃描（KB-021 缺口補上，A142，VirusTotal API＋雜湊快取優先查詢，fail closed）；P0 e2e 三條黃金路徑聚焦跨模組串接而非窮舉 Edge/Abuse Cases（A143）；migration／rollback rehearsal 因本機 Docker 異常改用 pglite 隔離環境，16 筆 migration 全套用全回滾皆乾淨（A144）；查證 Supabase 免費方案無自動備份無 PITR，更正 runbook 先前不準確的敘述（A145）；法律審查排除於本輪範圍，僅整理待審查清單（A146）；新增 `KNOWN_ISSUES.md` 彙整開放中已知限制（A147）；7 個代表性頁面無障礙抽查零違規（A148）。**P0 e2e 驗證過程中發現並修正一項真實缺陷**：掃描逾時預算原訂過緊（30 秒輪詢），本機用真實 VirusTotal API 對全新合法檔案完整測試時實測需 39 秒，導致合法檔案被誤判為 `FILE_SCAN_FAILED`；修正輪詢預算至約 105 秒後，另一份全新隨機檔案 30.7 秒內成功完成掃描，UI 同時保留舊失敗紀錄與新成功紀錄互為對照。全專案 208 個測試（+7）／typecheck／lint／`pnpm build` 全綠；本機瀏覽器完整驗證三條黃金路徑與跨帳號隔離回歸（6 條路徑皆 403）。已 commit（`e1efdbc`）＋push＋**正式站部署驗證通過**：`VIRUSTOTAL_API_KEY` 加入 web service 環境變數；用 Admin API 建立兩組正式站測試帳號，對正式站真實網域（`health-devkit.zeabur.app`）以 Node 腳本直接呼叫（繞過瀏覽器工具 30 秒逾時限制）端到端驗證——AC-4：全新隨機內容檔案上傳，真實 VirusTotal 掃描 19.5 秒內完成（比本機 30.7 秒更快），正確轉入 `processing`；AC-5：行動計畫完整生命週期（建立→三項指標→啟用→日常回報→檢討→「需要專業評估」→轉介摘要）全數 200；AC-6：看診摘要正確標記 `planFlagged`、匯出回應 200／`application/zip`、對話建立、帳號刪除申請／撤銷往返皆正確；AC-7：第二測試帳號對第一帳號 6 條跨模組路徑（文件列表／背景資料／計畫列表／計畫詳情／匯出／啟用計畫）全數正確 403 `PROJECT_ACCESS_DENIED`；另以真實瀏覽器確認計畫頁 UI 正確渲染「需要專業評估」標籤。驗證用測試帳號（含 Supabase Auth，含因暫時性 API 錯誤重試產生的孤兒帳號）與資料已全數清除。
 
 下一步：確認 commit／push，之後進行正式站部署驗證（全案最後一次部署驗證）。
+
+**E7-F1 公開站五頁完成，MVP 上線後首次功能性追加（2026-08-05，Sprint 25，新增 Epic E7）**：取代 `src/app/page.tsx` 過渡版 Hero，補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 列出但 MVP 開發期間一直缺席的公開頁面。文字逐字採用 `14_PUBLIC_SITE_COPY.md` 定案文案，不重寫不潤飾；沿用既有 `blue-700` 色彩慣例；新增公開頁共用外殼（簡易頁首／頁尾互連導覽，A150，非文案內容）；`/scope` 合併「能做什麼」「不能做什麼」為單頁兩區塊（A149）；`og:image` 本輪暫不提供，僅 `og:title`／`og:description`（A151，PO 確認）。純前端靜態頁面，無新資料表／API／Adapter，不影響任何已上線功能。詳見 07_SPRINT_LOG、sprints/sprint-25-dor.md。
 
 ## 16. 相關文件索引
 
