@@ -258,5 +258,13 @@
 - 影響範圍：正式站部署後，需另外用瀏覽器直接對 `health-devkit.zeabur.app` 貼上真實 LINE／Messenger 連結，或用第三方 OG 除錯工具（如 Facebook Sharing Debugger／opengraph.xyz 之類公開服務——注意這類工具會把公開網址送到第三方服務，本身不含機密或健康資料，風險可接受）驗證卡片外觀，才算完成 15_HANDOFF 該項 DOD；PO 之後提供 `og:image` 圖片素材時，只需在同一個 `metadata.openGraph` 物件補上 `images` 欄位，不需改動其餘結構。
 - 未來避免：任何「需要外部服務（社群平台、webhook、第三方爬蟲）抓取本站公開網址」才能完整驗證的需求，本機開發環境結構性地無法驗證到最後一哩路，DOR／DOD 撰寫時應如實區分「本機可驗證的部分」（meta tag 格式、字數）與「需部署後才可驗證的部分」（外部服務實際抓取結果），不要讓兩者的驗收條件混在一起、造成「測試通過」但實際上只驗證了一半的錯覺——此原則與 KB-025／KB-028 一貫強調「部署驗證不能只看表面訊號」同源，差別在於這次連「看表面訊號」都做不到，必須誠實標記為「待正式站部署後補驗證」。
 
+### 正式站部署後補驗證結果（2026-08-05，commit `c8d7eb0` 部署完成後）
+
+- **部署確認**：`npx zeabur@latest deployment list` 確認 web service 最新部署（`c8d7eb0`）狀態轉 `RUNNING`；`/api/health` 回 200 `{"status":"ok"}`；依 KB-025 教訓不僅看這兩者就結案，另用真實瀏覽器對正式站真實網域（`health-devkit.zeabur.app`）逐一開啟五個新公開頁面（`/`、`/privacy`、`/scope`、`/about`、`/ai-principles`），`get_page_text` 核對內容與本機驗證結果一致，皆無異常。
+- **og meta 實測**：於正式站 Hero 頁用 `document.querySelector('meta[property="og:title"]'/'og:description')` 讀取，確認正式站輸出與程式碼一致——`og:title`「個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄」（26 字）、`og:description`「整理歷年健檢資料、追蹤長期趨勢、建立可以安心調整的健康行動計畫。不診斷、不開藥、不用命理。」（45 字），`og:image` 確認不存在（符合 A151 預期，非缺陷）。
+- **第三方 OG 卡片驗證方式說明**：本機瀏覽器工具沒有 LINE／Messenger 客戶端可以真的貼連結測試，改用公開的第三方 OG 除錯工具 `opengraph.xyz` 對正式站網址（`https://health-devkit.zeabur.app/`）掃描——這類工具的運作原理與 LINE／Messenger 抓取連結預覽時相同（讀取目標網頁的 `og:*` meta tag 產生卡片），故可視為對「分享卡片是否正常顯示」的可信同等驗證，但誠實記錄：**並非直接在 LINE 或 Messenger 應用程式內實際貼上連結測試**，仍與「真的在 LINE 裡貼連結看到的畫面」存在工具鏈上的細微差異（例如各平台快取策略、圖片比例裁切規則不完全相同），若日後需要更高保真度的驗證，需 PO 或維護者直接在 LINE／Messenger 裡貼一次正式站連結核對。
+- **opengraph.xyz 掃描結果**：`og:title` 正確解析、26 字，在其建議上限（60 字）內，**無截斷**；`og:description` 正確解析、45 字，在其建議上限（120–160 字）內，**無截斷**；`og:image`／`twitter:image` 皆回報缺失（`Image is missing`），與 A151 預期一致，非本次發現的新缺陷；額外提示 `og:site_name` 也缺少（文案檔與 15_HANDOFF 皆未要求此欄位，非本輪範圍，未處理）。
+- **結論**：Hero 頁的 OG 分享卡片標題與描述在正式站環境下會正確顯示、不會截斷；卡片會因缺 `og:image` 而退回純文字或 favicon 樣式的卡片（非破圖或空白），使用者體驗上是「陽春但正確」而非「壞掉」。**PO 已確認 `og:image` 列為正式站部署後的近期待辦**（非下次大改版才處理，見 KNOWN_ISSUES.md 第 9 項），待提供圖片素材後於 `src/app/page.tsx` 的 `metadata.openGraph` 補上 `images` 欄位即可。
+
 ## 新紀錄模板
 （依方法論 13.2 節）

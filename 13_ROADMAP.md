@@ -15,17 +15,17 @@
 | E4 | 知識庫與串流問答引擎 | 🟢🟢🟢 | 3/3（E4-F1／E4-F2／E4-F3 皆完成，Epic 全數完成，皆已部署驗證通過） | 4 |
 | E5 | 健康行動閉環 | 🟢🟢🟢🟢 | 4/4（E5-F1／E5-F2／E5-F3／E5-F4 ✅皆已部署，Epic 全數完成） | 5 |
 | E6 | 稽核基座與交付驗證包 | 🟢🟢 | 2/2（E6-F1／E6-F2 ✅皆已部署，Epic 全數完成） | 2 |
-| E7 | 公開站與轉介體驗（MVP 上線後追加） | 🔵 | 0/1（E7-F1 進行中） | 1 |
+| E7 | 公開站與轉介體驗（MVP 上線後追加） | 🟢 | 1/1（E7-F1 ✅ 已部署，Epic 全數完成） | 1 |
 
 整體進度：**MVP 原始範圍全案 24 個 Sprint、20 個 Feature 全數完成並正式站部署驗證通過**（粗估 17，精估 24，差異說明見 05_BACKLOG）；**E7-F1 為上線後首次功能性追加，不計入 MVP 24 Sprint 分母**
 
 ## 3. 目前所在位置
-- 進行中：**Sprint 25（E7-F1：公開站五頁）**——MVP 上線後首次功能性追加，取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面，詳見 03_SDD §15、sprints/sprint-25-dor.md
+- 最近完成：**Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——MVP 上線後首次功能性追加，取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面；正式站真實網域驗證五頁內容與 OG meta 正確，第三方 OG 除錯工具確認分享卡片無截斷；`og:image` 待補（PO 已列為近期待辦，KNOWN_ISSUES.md 第 9 項）。詳見 03_SDD §15、sprints/sprint-25-dor.md、07_SPRINT_LOG、KB-037
 - 上一個里程碑：**Sprint 24（E6-F2：整合測試與部署交付包）已 commit（`e1efdbc`）＋push＋正式站部署驗證通過，正式結案（2026-07-22，全案最後一個 Feature）**：惡意檔案掃描（KB-021 缺口補上，VirusTotal API）；P0 e2e 三條黃金路徑（跨模組串接＋跨帳號隔離回歸）；migration／rollback rehearsal（Docker 異常改用 pglite，16 筆全套用全回滾皆乾淨）；查證 Supabase 免費方案無自動備份無 PITR 並更正 runbook；新增 `KNOWN_ISSUES.md`；7 頁無障礙抽查零違規。**P0 e2e 驗證中發現並修正真實缺陷**：掃描逾時預算原訂 30 秒過緊，真實 API 測試需 39 秒，合法檔案曾被誤判失敗，修正至約 105 秒後重測成功。全專案 208 測試（+7）／typecheck／lint／build 全綠。**正式站部署驗證**：`VIRUSTOTAL_API_KEY` 加入 web service；對正式站真實網域端到端驗證 AC-4～AC-7——全新檔案掃描 19.5 秒完成（比本機更快）、計畫生命週期／看診摘要／匯出／帳號刪除撤銷／6 條跨帳號隔離路徑皆正確，驗證資料已全數清除。**全案 20 個 Feature 全數完成並上線。**
 - 下一個：無下一個 Sprint（開發面已全數完成）；等待台灣個資與醫療法律審查完成後即可正式對外交付
 
 ## 4. 接下來三步
-1. 完成 Sprint 25（E7-F1：公開站五頁）並視情況 commit／push／正式站部署驗證
+1. `og:image` 圖片素材補上（PO 已要求近期處理，非下次大改版，見 KNOWN_ISSUES.md 第 9 項）
 2. 台灣個資與醫療法律審查（外部人工事項，上線硬門檻，見 KNOWN_ISSUES.md，唯一剩餘 MVP 阻塞待辦，與 E7-F1 無關、不互相阻塞）
 3. 審查通過後正式對外交付 MVP
 
