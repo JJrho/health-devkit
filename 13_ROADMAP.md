@@ -17,16 +17,17 @@
 | E6 | 稽核基座與交付驗證包 | 🟢🟢 | 2/2（E6-F1／E6-F2 ✅皆已部署，Epic 全數完成） | 2 |
 | E7 | 公開站與轉介體驗（MVP 上線後追加） | 🟢 | 1/1（E7-F1 ✅ 已部署，Epic 全數完成） | 1 |
 
-整體進度：**MVP 原始範圍全案 24 個 Sprint、20 個 Feature 全數完成並正式站部署驗證通過**（粗估 17，精估 24，差異說明見 05_BACKLOG）；**E7-F1 為上線後首次功能性追加，不計入 MVP 24 Sprint 分母**
+整體進度：**MVP 原始範圍全案 24 個 Sprint、20 個 Feature 全數完成並正式站部署驗證通過**（粗估 17，精估 24，差異說明見 05_BACKLOG）；**E7-F1／E2-F5 皆為上線後追加，不計入 MVP 24 Sprint 分母**。E2 表另新增 E2-F5（原始掃描檔刪除引導提示，Sprint 26，2026-08-05，✅ 已完成，非原始 20 Feature 分母）。
 
 ## 3. 目前所在位置
-- 最近完成：**Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——MVP 上線後首次功能性追加，取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面；正式站真實網域驗證五頁內容與 OG meta 正確，第三方 OG 除錯工具確認分享卡片無截斷；`og:image` 待補（PO 已列為近期待辦，KNOWN_ISSUES.md 第 9 項）。詳見 03_SDD §15、sprints/sprint-25-dor.md、07_SPRINT_LOG、KB-037
+- 最近完成：**Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已完成（2026-08-05）**——PO 提供 `og-image.jpg` 補上 OG 卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現既有 `deleteDocument()`（E2-F1）缺乏使用者引導，補提示文案不改動既有刪除／匯出邏輯（不自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039）。全專案 213 個測試（+4）／typecheck／lint／build 全綠。詳見 03_SDD §15、sprints/sprint-26-dor.md、07_SPRINT_LOG
+- 上一個里程碑：**Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——MVP 上線後首次功能性追加，取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面；正式站真實網域驗證五頁內容與 OG meta 正確，第三方 OG 除錯工具確認分享卡片無截斷。詳見 sprints/sprint-25-dor.md、KB-037
 - 上一個里程碑：**Sprint 24（E6-F2：整合測試與部署交付包）已 commit（`e1efdbc`）＋push＋正式站部署驗證通過，正式結案（2026-07-22，全案最後一個 Feature）**：惡意檔案掃描（KB-021 缺口補上，VirusTotal API）；P0 e2e 三條黃金路徑（跨模組串接＋跨帳號隔離回歸）；migration／rollback rehearsal（Docker 異常改用 pglite，16 筆全套用全回滾皆乾淨）；查證 Supabase 免費方案無自動備份無 PITR 並更正 runbook；新增 `KNOWN_ISSUES.md`；7 頁無障礙抽查零違規。**P0 e2e 驗證中發現並修正真實缺陷**：掃描逾時預算原訂 30 秒過緊，真實 API 測試需 39 秒，合法檔案曾被誤判失敗，修正至約 105 秒後重測成功。全專案 208 測試（+7）／typecheck／lint／build 全綠。**正式站部署驗證**：`VIRUSTOTAL_API_KEY` 加入 web service；對正式站真實網域端到端驗證 AC-4～AC-7——全新檔案掃描 19.5 秒完成（比本機更快）、計畫生命週期／看診摘要／匯出／帳號刪除撤銷／6 條跨帳號隔離路徑皆正確，驗證資料已全數清除。**全案 20 個 Feature 全數完成並上線。**
 - 下一個：無下一個 Sprint（開發面已全數完成）；等待台灣個資與醫療法律審查完成後即可正式對外交付
 
 ## 4. 接下來三步
-1. `og:image` 圖片素材補上（PO 已要求近期處理，非下次大改版，見 KNOWN_ISSUES.md 第 9 項）
-2. 台灣個資與醫療法律審查（外部人工事項，上線硬門檻，見 KNOWN_ISSUES.md，唯一剩餘 MVP 阻塞待辦，與 E7-F1 無關、不互相阻塞）
+1. 台灣個資與醫療法律審查（外部人工事項，上線硬門檻，見 KNOWN_ISSUES.md，唯一剩餘 MVP 阻塞待辦，與 E7-F1／E2-F5 無關、不互相阻塞；KB-039 給王醫師的技術現況說明可作為送審參考）
+2. 待 PO 確認是否 commit／push Sprint 26 變更（會觸發 Zeabur 自動部署）
 3. 審查通過後正式對外交付 MVP
 
 **OCR 排程最終拍板（2026-07-16）**：掃描 OCR 啟用（C4 flag）已移出 05_BACKLOG「Phase 2+」大雜燴。**PoC 完成（KB-023，86% 真實文件無文字層）後，PO 決定維持原計畫，OCR 仍排在 E2-F3 之後，不提前插隊**——優先把文字型管線＋手動輸入 fallback 做穩、資料模型穩定後再接 OCR，避免整合成本與風險。屆時另立 DOR，需先決定 OCR 供應商（自架 vs. 雲端 API，涉及成本與健檢文件送第三方的隱私考量），並將手機拍照特有挑戰（透視變形、光線、解析度、部分入鏡）納入設計考量，不只是掃描器品質輸入。

@@ -12,7 +12,8 @@
 3. ✅ Clarify C1–C22 決議（archive/previous_decisions/）
 4. ✅ 粗估 17／精估 24；WBS 三層拆解＋三輪檢查通過（05_BACKLOG、13_ROADMAP）
 5. ✅ **Sprint 1～24（E1–E6，全案 20 個原始 MVP Feature）全數完成，正式站部署驗證通過（2026-07-22，Sprint 24 結案）**——僅剩台灣個資與醫療法律審查（外部人工事項）為上線硬門檻，見 KNOWN_ISSUES.md
-6. ✅ **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已完成並正式站部署驗證通過（2026-08-05）**——取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面。`og:image` 圖片素材為唯一近期待辦（見 KNOWN_ISSUES.md）
+6. ✅ **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已完成並正式站部署驗證通過（2026-08-05）**——取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面
+7. 🔵 **← 現在：Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已完成本機實作與測試，待 PO 確認 commit／push**（DOR：sprints/sprint-26-dor.md）
 
 ## 接手必讀順序
 02_CONSTITUTION → 03_SDD（含 §17 決議定案值）→ 05_BACKLOG → 13_ROADMAP → 06_DOR_DOD → 10_SYNC

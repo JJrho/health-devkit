@@ -4,7 +4,8 @@ import { PublicFooter, PublicHeader } from "@/components/public/public-shell";
 
 /**
  * 公開站 Hero 首頁（E7-F1，取代過渡版）。文字內容逐字採用
- * 14_PUBLIC_SITE_COPY.md 頁 4/5，不重寫不潤飾。og:image 本輪暫不提供（A151）。
+ * 14_PUBLIC_SITE_COPY.md 頁 4/5，不重寫不潤飾。og:image 由 PO 提供
+ * （public/og-image.jpg，1200x630，見 09_KNOWLEDGE_BASE.md KB-037 補記）。
  */
 export const metadata: Metadata = {
   title: "個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
     title: "個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄",
     description:
       "整理歷年健檢資料、追蹤長期趨勢、建立可以安心調整的健康行動計畫。不診斷、不開藥、不用命理。",
+    images: ["/og-image.jpg"],
   },
 };
 

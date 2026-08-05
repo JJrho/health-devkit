@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FormMessage } from "@/components/auth/auth-ui";
+import { DeletionGuidanceNotice } from "@/components/documents/deletion-guidance-notice";
 
 interface DocumentItem {
   id: string;
@@ -515,6 +516,7 @@ function DocumentRow({
   onRefresh: () => void;
 }) {
   const [showResults, setShowResults] = useState(false);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const canShowResults =
     document.status === "review_required" ||
     document.status === "processing_failed" ||
@@ -565,6 +567,7 @@ function DocumentRow({
             </button>
           )}
           <button
+            ref={deleteButtonRef}
             type="button"
             onClick={onDelete}
             className="rounded-lg border-2 border-red-400 px-5 py-3 text-lg font-semibold text-red-700 focus:outline-none focus:ring-4 focus:ring-red-200"
@@ -573,6 +576,9 @@ function DocumentRow({
           </button>
         </div>
       </div>
+      {document.status === "confirmed" && (
+        <DeletionGuidanceNotice onFocusDeleteButton={() => deleteButtonRef.current?.focus()} />
+      )}
       {showResults && (
         <ExtractionResults
           projectId={projectId}

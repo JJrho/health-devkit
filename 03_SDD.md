@@ -96,7 +96,9 @@
 | `/about` | 頁 3/5 | 產品說明 |
 | `/ai-principles` | 頁 5/5 | 來源與 AI 原則 |
 
-五頁皆為未登入可存取之公開頁；沿用既有 `blue-700` 色彩慣例，未新增色彩系統；OG meta（`og:title`／`og:description`）加在 `/` 之 metadata 匯出，`og:image` 本輪暫不提供（A151，見 sprints/sprint-25-dor.md）。
+五頁皆為未登入可存取之公開頁；沿用既有 `blue-700` 色彩慣例，未新增色彩系統；OG meta（`og:title`／`og:description`／`og:image`）加在 `/` 之 metadata 匯出，`og:image`（`public/og-image.jpg`，1200x630）由 PO 於 Sprint 26 提供（見 sprints/sprint-25-dor.md、KB-037）。
+
+**E2-F5 原始掃描檔刪除引導提示（Sprint 26，2026-08-05，MVP 上線後追加）**：`/projects/[id]/documents` 頁的 `DocumentRow` 於 `document.status === "confirmed"` 時新增提示文字＋可聚焦既有刪除按鈕的連結，不改動 `deleteDocument()` 既有邏輯，見 sprints/sprint-26-dor.md、KB-038。
 
 ## 6. 資料欄位
 
@@ -185,6 +187,8 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 下一步：確認 commit／push，之後進行正式站部署驗證（全案最後一次部署驗證）。
 
 **E7-F1 公開站五頁完成，MVP 上線後首次功能性追加（2026-08-05，Sprint 25，新增 Epic E7）**：取代 `src/app/page.tsx` 過渡版 Hero，補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 列出但 MVP 開發期間一直缺席的公開頁面。文字逐字採用 `14_PUBLIC_SITE_COPY.md` 定案文案，不重寫不潤飾；沿用既有 `blue-700` 色彩慣例；新增公開頁共用外殼（簡易頁首／頁尾互連導覽，A150，非文案內容）；`/scope` 合併「能做什麼」「不能做什麼」為單頁兩區塊（A149）；`og:image` 本輪暫不提供，僅 `og:title`／`og:description`（A151，PO 確認）。純前端靜態頁面，無新資料表／API／Adapter，不影響任何已上線功能。詳見 07_SPRINT_LOG、sprints/sprint-25-dor.md。
+
+**Sprint 26（2026-08-05）兩項小型追加**：①`og:image` 補件——PO 提供 `og-image.jpg`（1200x630，JPEG）存入 `public/og-image.jpg`，`src/app/page.tsx` 補上 `metadata.openGraph.images`，KB-037 已解決，KNOWN_ISSUES.md 第 9 項移除。②**E2-F5 原始掃描檔刪除引導提示**（新 Feature，見上方 §5、sprints/sprint-26-dor.md）：與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 已存在）缺乏使用者引導，本輪補提示文案，不改動既有刪除／匯出邏輯（不自動刪除，PO 拍板理由見 KB-038）；同時整理一份給王醫師的技術現況說明（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化的誠實揭露）。全專案 213 個測試（+4）／typecheck／lint／build 全綠。
 
 ## 16. 相關文件索引
 

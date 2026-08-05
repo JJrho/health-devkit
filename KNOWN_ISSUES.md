@@ -2,7 +2,7 @@
 
 > E6-F2（A147）彙整版：只列**目前仍開放（未解決）**的已知限制，供 PO 與未來維護者快速掌握現況，
 > 不需翻閱整本 09_KNOWLEDGE_BASE.md（該檔含大量已解決的歷史事故記錄）。
-> 每項附對應 KB 編號可查完整脈絡。最後更新：2026-07-22（Sprint 24）。
+> 每項附對應 KB 編號可查完整脈絡。最後更新：2026-08-05（Sprint 26）。
 
 ## 上線前必須處理（硬門檻）
 
@@ -20,15 +20,18 @@
 
 6. **E4-F3 安全把關為顯示層級，非自動攔截**（A81）：對話中偵測到的可疑內容（如要求停藥、要求顯示內部規則等 Abuse Case）僅顯示提示，系統不自動封鎖對話或阻止 AI 回覆。語意層面「引用內容與 claim 是否一致」的深度核對（技術選型 §11.5）亦非本輪範圍，需額外 NLI 模型或二次 LLM 呼叫。
 
+7. **原始上傳檔案未去識別化**（KB-039，Sprint 26）：結構化資料表（`users`／`extracted_items`／`observations`）皆無姓名、身分證、生日、地址、電話欄位；但使用者上傳的原始掃描檔／照片本身完整保存於 Storage，若原始報告印有姓名等資訊，會原封不動存在。E2-F5（Sprint 26）已補上使用者可自主刪除原始檔的引導提示（非自動去識別化或強制刪除），但這與「完全不留個資」是兩件不同的事，提交法律審查（見上方第 1 項）時需一併說明。
+
+8. **E2-F5 刪除引導提示尚未完整端到端驗證**（Sprint 26）：`DeletionGuidanceNotice` 元件本身已用單元測試驗證文案與點擊行為，但「真實帳號→上傳→Worker 解析→人工確認→於文件列表親眼看到提示」這條完整路徑本輪未實際走過一次（本機 `pnpm dev` 未同時啟動 Worker，PO 已同意暫不補）。**PO 已指示：下次有真實使用者走過上傳流程時，順手確認一次並記錄結果**，確認後可將本項移除並補記於 09_KNOWLEDGE_BASE.md。
+
 ## 已知體感／非阻塞限制
 
-7. **Google 登入同意畫面顯示 Supabase 專案網域，非自訂應用程式名稱**：需 PO 於 Google Cloud Console 另行設定 OAuth 同意畫面的應用程式名稱，純品牌體感問題，不影響功能。
+9. **Google 登入同意畫面顯示 Supabase 專案網域，非自訂應用程式名稱**：需 PO 於 Google Cloud Console 另行設定 OAuth 同意畫面的應用程式名稱，純品牌體感問題，不影響功能。
 
-8. **惡意檔案掃描（VirusTotal）需要 PO 自行申請 API Key 並設定 `VIRUSTOTAL_API_KEY`**（Sprint 24，E6-F2，KB-021 缺口本輪已補上）：免費額度上限請參考 VirusTotal 官方文件，若流量超出免費額度需評估升級方案；掃描服務逾時或無金鑰時，上傳一律 fail closed 直接拒絕（見 `src/modules/documents/service.ts` `completeUpload()`），不會靜默放行未掃描檔案。
-
-9. **Hero 頁 OG 分享卡片缺 `og:image`**（Sprint 25，E7-F1，A151，KB-037）：`og:title`／`og:description` 已上線，但目前無任何圖片素材，`og:image` 留白。**PO 已確認列為部署後近期待辦、非下次大改版才處理**：待 PO 提供或指定一張「安靜、非行銷感的靜態圖」後，只需在 `src/app/page.tsx` 的 `metadata.openGraph` 補上 `images` 欄位即可，不需改動其餘結構。
+10. **惡意檔案掃描（VirusTotal）需要 PO 自行申請 API Key 並設定 `VIRUSTOTAL_API_KEY`**（Sprint 24，E6-F2，KB-021 缺口本輪已補上）：免費額度上限請參考 VirusTotal 官方文件，若流量超出免費額度需評估升級方案；掃描服務逾時或無金鑰時，上傳一律 fail closed 直接拒絕（見 `src/modules/documents/service.ts` `completeUpload()`），不會靜默放行未掃描檔案。
 
 ## 已解決／已拍板不處理（僅供對照，詳見 09_KNOWLEDGE_BASE.md）
 
 - KB-021 惡意檔案掃描缺口：**Sprint 24 本輪已解決**（VirusTotal API）。
+- KB-037 Hero 頁 `og:image` 缺口：**Sprint 26 已解決**（PO 提供 `public/og-image.jpg`，1200x630）。
 - KB-009／KB-012／KB-025／KB-026／KB-028／KB-029／KB-031／KB-032：實作期間發現並修正的技術缺陷，皆已解決，僅作為「未來避免」教訓保留在 KB。
