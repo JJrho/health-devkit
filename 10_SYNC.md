@@ -1,7 +1,7 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
-**Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）實作＋測試皆完成（2026-08-05），尚未 commit／push／正式站部署，待 PO 確認**——PO 提供 `og-image.jpg` 補上 OG 分享卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 既有功能）缺乏使用者引導，新增 E2-F5 補提示文案（不做自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化）。全專案 213 個測試（+4）／typecheck／lint／build 全綠。詳見 07_SPRINT_LOG、sprints/sprint-26-dor.md。
+**Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋metadataBase 修正）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——PO 提供 `og-image.jpg` 補上 OG 分享卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 既有功能）缺乏使用者引導，新增 E2-F5 補提示文案（不做自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。**正式站部署驗證發現並修正真實缺陷**：`og:image` 缺 `metadataBase` 解析成容器內部位址而非正式站網域，外部服務完全抓不到圖片，本機驗證階段未現形（KB-040），修正後本機與正式站皆確認正確。詳見 07_SPRINT_LOG、sprints/sprint-26-dor.md。
 
 **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——取代 `src/app/page.tsx` 過渡版 Hero，新增 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面，補齊新增 Epic E7（見 05_BACKLOG、13_ROADMAP、sprints/sprint-25-dor.md、07_SPRINT_LOG、KB-037）。文字逐字採用 PO 與 Claude Chat 定案之 `14_PUBLIC_SITE_COPY.md`；全專案 209 個測試（+1）／typecheck／lint／build 全綠；五頁 axe-core 零 Critical／Serious 違規；正式站真實網域驗證五頁內容與 OG meta 皆正確，第三方 OG 除錯工具確認分享卡片標題／描述無截斷。`og:image` 本輪不提供（PO 確認，無素材，A151），**PO 已明確要求列為部署後近期待辦**（KNOWN_ISSUES.md 第 9 項），不拖到下次大改版。
 

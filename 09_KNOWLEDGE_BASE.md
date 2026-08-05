@@ -289,5 +289,13 @@ PO 提供 `og-image.jpg`（1200x630，JPEG，約 82KB，符合 OG 卡片建議�
 - **本輪已完成的補充處理（見 KB-038）**：由於自動去識別化原始檔案（如自動裁切或打碼姓名欄位）技術上不可靠、且會動到既有匯出與回溯核對機制，本輪改為在使用者完成人工確認後，於介面明確告知「原始掃描檔可以自己選擇要不要保留」，並提供一鍵可達的既有刪除功能入口（E2-F5，`sprints/sprint-26-dor.md`）。這是**使用者自主刪除**機制，不是系統自動去識別化或強制刪除，兩者法律與產品定位不同，需要跟王醫師明確區分。
 - 用途：本條目彙整成可直接轉述的版本，供 PO 與王醫師討論、或未來提交法律審查（見 KNOWN_ISSUES.md 第 1 項）時作為技術現況的參考依據，避免口頭轉述失真。
 
+## KB-040 缺少 `metadataBase` 時，Next.js 把相對路徑 og:image 解析成伺服器內部位址（正式站部署驗證時發現的真實缺陷）
+
+- 類型：真實缺陷（Sprint 26，2026-08-05，og:image 補件正式站部署驗證時發現）
+- 內容：Sprint 26 為 Hero 頁補上 `openGraph.images: ["/og-image.jpg"]`（相對路徑），本機瀏覽器驗證通過（見 07_SPRINT_LOG，`og:image` 正確顯示為 `http://localhost:3000/og-image.jpg`）。但正式站部署驗證時實測發現，`<meta property="og:image">` 實際輸出的是 **`http://localhost:8080/og-image.jpg`**——不是正式站網域，而是容器內部的伺服器位址（8080 為本專案 Next.js 正式環境內部監聽埠）。根因：Next.js Metadata API 對相對路徑的圖片欄位，需要 root layout 設定 `metadataBase` 才能解析成絕對網址；未設定時，Next.js 會退回使用當下請求的伺服器位址推算，而正式站容器內部視角看到的是內部位址而非對外網域，導致外部服務（LINE／Messenger／任何 OG 爬蟲）**完全無法抓到這張圖**（`localhost:8080` 對外部世界不可達）。本機開發環境沒有這個問題是因為本機 dev server 對外請求位址與內部位址剛好一致（都是 `localhost:3000`），才讓這個缺陷在本機驗證階段完全沒有現形跡象。
+- 已完成處置：`src/app/layout.tsx` 的 `metadata` 匯出補上 `metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://health-devkit.zeabur.app")`（無此環境變數時 fallback 至本專案目前唯一的正式站網域，非機密值）；本機與正式站重新驗證，`og:image` 皆正確解析為完整對外網址。
+- 影響範圍：僅影響本次新增的 `og:image`（`og:title`／`og:description` 為純文字欄位，不受 `metadataBase` 影響，Sprint 25 部署驗證時已確認正確，未受此缺陷波及）；`metadataBase` 為全站 layout 層級設定，未來任何頁面若使用相對路徑的 `openGraph.images`／`twitter.images`／`alternates.canonical` 等欄位皆會受益、不需各自處理。
+- 未來避免：**任何在 Next.js Metadata API 中使用相對路徑的圖片／連結欄位（`openGraph.images`、`twitter.images`、`alternates.canonical` 等），一律要有 root layout 的 `metadataBase` 才算完整**；本機驗證「路徑看起來正確」不足以證明正式環境也正確——這與 KB-025／KB-028 一貫強調的「本機通過不代表正式環境行為一致」同一類教訓，差別在於這次連本機驗證階段都看不出問題（本機 dev server 內外位址剛好相同，掩蓋了缺陷），必須額外記得：**任何涉及「絕對網址」的 metadata 欄位，本機驗證只能證明相對路徑寫對了，無法證明絕對網址真的解析到對外可達的網域，一定要在正式站環境實測才算數**。
+
 ## 新紀錄模板
 （依方法論 13.2 節）

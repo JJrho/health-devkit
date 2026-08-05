@@ -188,7 +188,7 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **E7-F1 公開站五頁完成，MVP 上線後首次功能性追加（2026-08-05，Sprint 25，新增 Epic E7）**：取代 `src/app/page.tsx` 過渡版 Hero，補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 列出但 MVP 開發期間一直缺席的公開頁面。文字逐字採用 `14_PUBLIC_SITE_COPY.md` 定案文案，不重寫不潤飾；沿用既有 `blue-700` 色彩慣例；新增公開頁共用外殼（簡易頁首／頁尾互連導覽，A150，非文案內容）；`/scope` 合併「能做什麼」「不能做什麼」為單頁兩區塊（A149）；`og:image` 本輪暫不提供，僅 `og:title`／`og:description`（A151，PO 確認）。純前端靜態頁面，無新資料表／API／Adapter，不影響任何已上線功能。詳見 07_SPRINT_LOG、sprints/sprint-25-dor.md。
 
-**Sprint 26（2026-08-05）兩項小型追加**：①`og:image` 補件——PO 提供 `og-image.jpg`（1200x630，JPEG）存入 `public/og-image.jpg`，`src/app/page.tsx` 補上 `metadata.openGraph.images`，KB-037 已解決，KNOWN_ISSUES.md 第 9 項移除。②**E2-F5 原始掃描檔刪除引導提示**（新 Feature，見上方 §5、sprints/sprint-26-dor.md）：與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 已存在）缺乏使用者引導，本輪補提示文案，不改動既有刪除／匯出邏輯（不自動刪除，PO 拍板理由見 KB-038）；同時整理一份給王醫師的技術現況說明（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化的誠實揭露）。全專案 213 個測試（+4）／typecheck／lint／build 全綠。
+**Sprint 26（2026-08-05）兩項小型追加**：①`og:image` 補件——PO 提供 `og-image.jpg`（1200x630，JPEG）存入 `public/og-image.jpg`，`src/app/page.tsx` 補上 `metadata.openGraph.images`，KB-037 已解決，KNOWN_ISSUES.md 第 9 項移除。②**E2-F5 原始掃描檔刪除引導提示**（新 Feature，見上方 §5、sprints/sprint-26-dor.md）：與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 已存在）缺乏使用者引導，本輪補提示文案，不改動既有刪除／匯出邏輯（不自動刪除，PO 拍板理由見 KB-038）；同時整理一份給王醫師的技術現況說明（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化的誠實揭露）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。③正式站部署驗證時發現並修正真實缺陷（KB-040）：`og:image` 缺 `metadataBase` 導致解析成容器內部位址而非正式站網域，已修正並二次部署驗證通過。
 
 ## 16. 相關文件索引
 

@@ -1,8 +1,8 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）實作＋測試皆完成（2026-08-05），**尚未 commit／push／正式站部署，待 PO 確認**。Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E2-F5 無關、不互相阻塞。
+> 目前狀態：Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋修正 `metadataBase` 缺陷）＋push＋正式站部署驗證通過（2026-08-05），正式結案。Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E2-F5 無關、不互相阻塞。
 
-## Sprint 26 — og:image 補件＋E2-F5：原始掃描檔刪除引導提示 ✅ 實作＋測試完成，待 commit／push
+## Sprint 26 — og:image 補件＋E2-F5：原始掃描檔刪除引導提示 ✅ 實作＋測試＋正式站部署驗證皆完成，正式結案
 
 - 期間：2026-08-05（單日完成）
 - 觸發：PO 與王醫師溝通產品個資疑慮過程中發現的兩個小型缺口，皆屬既定收尾／低風險追加
@@ -15,20 +15,24 @@ PO 提供 `og-image.jpg`（1200x630 JPEG，約 82KB，實測 `file` 指令確認
 - 背景：`deleteDocument()`（`src/modules/documents/service.ts`）與對應 UI 刪除按鈕自 E2-F1（Sprint 6）已存在且可正常運作，但使用者無從得知「確認完數值後可以自己刪除含個人資訊的原始掃描檔」這個選項。
 - 設計決策：**不做自動刪除**，改為使用者自主決定（PO 拍板，理由：自動刪除會影響既有資料匯出功能與「數值可回溯原始報告」的產品原則，詳見 KB-038）。`DocumentRow` 於 `document.status === "confirmed"` 時新增提示文字＋一個可聚焦既有刪除按鈕的連結（`useRef` 實作，鍵盤可達），不改動 `deleteDocument()`／`data-export.ts` 既有邏輯。
 - 實作前研究確認：已核對 `observations.documentId` 雖 FK 參照 `documents.id`，但 `deleteDocument()` 為軟刪除，不會級聯刪除 `observations`；`data-export.ts` 的 `observations` 匯出獨立於 `documents` 查詢，數值永遠會匯出，刪除原始檔只影響 ZIP 內是否還有該份原始檔案本身。
-- 測試：`DocumentRow`／`DocumentItem` 型別改為具名匯出，新增 `tests/unit/document-row.test.tsx`（AC-1～AC-4，含焦點移動驗證）。過程發現 Vitest 未啟用 `globals`，`@testing-library/react` 自動 cleanup 偵測不到全域 `afterEach`，改為手動 `afterEach(cleanup)`，避免多個 `it()` 之間 DOM 累積導致誤判「找到多個元素」。
-- 全專案 213 個測試（+4）／typecheck／lint／`pnpm build` 全綠。
+- 測試：原計畫將 `DocumentRow`／`DocumentItem` 具名匯出以便直接測試，但 `pnpm build` 失敗——Next.js App Router 的 `page.tsx` 僅允許固定幾種匯出（`default`／`metadata`／`generateStaticParams` 等），任何額外具名匯出都會讓路由型別檢查報錯。改為把提示區塊抽成獨立元件 `src/components/documents/deletion-guidance-notice.tsx`（`DeletionGuidanceNotice`），`DocumentRow` 內部呼叫，`page.tsx` 匯出面維持不變。新增 `tests/unit/deletion-guidance-notice.test.tsx`（AC-1／AC-3：文案顯示、點擊呼叫 `onFocusDeleteButton` callback）。過程發現 Vitest 未啟用 `globals`，`@testing-library/react` 自動 cleanup 偵測不到全域 `afterEach`，改為手動 `afterEach(cleanup)`，避免多個 `it()` 之間 DOM 累積導致誤判「找到多個元素」。
+- 全專案 211 個測試（+2）／typecheck／lint／`pnpm build` 全綠。
 
 ### KB 補充
 - KB-037：og:image 完成記錄
 - KB-038：不做自動刪除的決策依據
 - KB-039：給王醫師的技術現況說明（結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化的誠實揭露）
+- KB-040：正式站部署驗證中發現並修正的真實缺陷（詳見下方）
 
 ### 驗證範圍誠實說明
 - **og:image**：本機瀏覽器直接驗證通過——`/og-image.jpg` 可正常存取（1200x630）、Hero 頁 `og:image` meta tag 正確指向該路徑。
-- **E2-F5 刪除引導提示**：`DeletionGuidanceNotice` 元件本身已用 Testing Library 單元測試驗證文案與點擊行為（AC-1／AC-3）；**AC-2（非 confirmed 狀態不顯示）與完整登入後的真實瀏覽器端到端驗證本輪未執行**——需要真實帳號＋專案＋上傳文件＋Worker 解析＋人工確認完整走一輪才能在瀏覽器中重現 `confirmed` 狀態，而本機 `pnpm dev` 未同時啟動 Worker（需另開 `pnpm worker`），本輪評估此變動風險低（純文案＋單一布林條件渲染，不改動任何服務層邏輯）而未額外搭建完整流程。若需要更高保真度驗證，可於下次有實際上傳／確認流程的 Sprint 中一併順手確認，或由 PO 之後在正式站或本機手動走一輪確認。
+- **E2-F5 刪除引導提示**：`DeletionGuidanceNotice` 元件本身已用 Testing Library 單元測試驗證文案與點擊行為（AC-1／AC-3）；**AC-2（非 confirmed 狀態不顯示）與完整登入後的真實瀏覽器端到端驗證本輪未執行**——需要真實帳號＋專案＋上傳文件＋Worker 解析＋人工確認完整走一輪才能在瀏覽器中重現 `confirmed` 狀態，而本機 `pnpm dev` 未同時啟動 Worker（需另開 `pnpm worker`），本輪評估此變動風險低（純文案＋單一布林條件渲染，不改動任何服務層邏輯）而未額外搭建完整流程。**PO 2026-08-05 指示：下次有真實使用者走過上傳流程時順手確認一次並記錄結果**（已列入 KNOWN_ISSUES.md 第 8 項）。
+
+### 正式站部署驗證（2026-08-05）
+`f32945f` push 後 web service 自動重建，約 8 分鐘後轉 `RUNNING`；`/api/health` 200。依 KB-025 不僅看這兩者就結案，用真實瀏覽器對正式站真實網域（`health-devkit.zeabur.app`）驗證：`/og-image.jpg` 可正常存取（1200x630）。**驗證過程發現並當場修正一項真實缺陷（KB-040）**：Hero 頁 `og:image` meta tag 實際輸出 `http://localhost:8080/og-image.jpg`——不是正式站網域，而是容器內部伺服器位址，外部服務完全無法抓取。本機驗證階段完全沒有現形（本機 dev server 對外/對內位址剛好一致），只有在正式站環境才會暴露。根因是 Next.js Metadata API 的相對路徑圖片欄位需要 root layout 設定 `metadataBase` 才能解析成絕對網址。已於 `src/app/layout.tsx` 補上 `metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://health-devkit.zeabur.app")`，本機與正式站重新驗證皆正確解析為完整對外網址（`https://health-devkit.zeabur.app/og-image.jpg`）。此修正已一併 commit／push，觸發第二次部署並確認正式站 RUNNING、`og:image` meta tag 正確。
 
 ### 下一步
-待 PO 確認是否 commit／push（會觸發 Zeabur 自動重建部署）。
+無（本輪已結案）。E2-F5 完整端到端驗證待下次真實上傳流程時補做，見 KNOWN_ISSUES.md 第 8 項。
 
 ## Sprint 25 — E7-F1：公開站五頁（Hero／說明／能做不能做／隱私／來源與AI原則）✅ 實作＋測試＋本機與正式站瀏覽器驗證皆完成，正式結案
 
