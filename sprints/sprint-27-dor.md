@@ -1,9 +1,11 @@
-# Sprint 27 DOR — E8-F1：每日自動備份（資料庫＋Storage → Google Drive）
+# Sprint 27 DOR — E8-F1：每日自動備份（資料庫＋Storage → Cloudflare R2）
 
-> 狀態：**✅ 通過（PO 已確認，2026-08-05）**
-> 對應：E8-F1（05_BACKLOG 新增 Epic E8：維運與備份自動化）；KNOWN_ISSUES.md 第 2 項「Supabase 免費方案無自動備份」
-> 前置依賴：Google Drive 備份帳號層級設定（同日稍早完成：service account、Drive API、Drive 資料夾共用、`GOOGLE_SERVICE_ACCOUNT_JSON`／`GOOGLE_DRIVE_FOLDER_ID` 兩把 GitHub Secrets 已就緒）
+> 狀態：**✅ 通過並結案（PO 已確認，2026-08-05～2026-08-06）**
+> 對應：E8-F1（05_BACKLOG 新增 Epic E8：維運與備份自動化）；KNOWN_ISSUES.md「已解決」區（原第 2 項「Supabase 免費方案無自動備份」）
+> 前置依賴：備份帳號層級設定（Supabase Session pooler 連線字串＋R2 bucket／API Token，PO 提供）
 > 精簡說明：本輪為 CI 排程腳本＋GitHub Actions workflow，不觸碰 app 執行期程式碼／資料表結構，DOR 依既有精簡慣例撰寫。
+>
+> **實作後變更（A158，KB-042）**：DOR 原訂上傳目的地為 Google Drive（帳號層級設定已完成：service account、Drive API、Drive 資料夾共用），但正式站部署驗收時撞上 Google 平台限制——service account 對個人 Gmail Drive 沒有儲存配額（`HTTP 403 storageQuotaExceeded`，Google 官方訊息明確指出僅 Shared Drives／OAuth domain-wide delegation 可行，兩者皆為 Google Workspace 專屬功能），非程式碼問題可解，PO 決定改用 Cloudflare R2（S3 相容 API）。以下 §4／§9 假設登記中提及 Google Drive 之處，實作結果請一律以 R2 為準；完整經過見 KB-042。另外，資料庫還原驗證（AC-2）實際除錯過程踩過五層真實環境問題（PGDG 套件庫、pg_dump 版本解析、schema 衝突、擴充套件注入順序、search_path 清空），完整記錄見 KB-041。
 
 ---
 
@@ -59,10 +61,12 @@ GitHub Actions 排程（每日 UTC 18:00＝台灣時間凌晨 2 點）或 PO 手
 - **A154（新增，實作方式）**：Storage 備份直接用 `@supabase/supabase-js`（`SUPABASE_URL`＋`SUPABASE_SERVICE_ROLE_KEY`）在獨立腳本內呼叫，不透過 app 的 `StorageAdapter` 介面。**理由**：比照既有 `scripts/setup-storage.ts` 的既定慣例——`scripts/` 底下的一次性／CI 維運腳本本來就是直接呼叫 Supabase client，憲法 §1「外部服務走 Adapter」規範的是 app 執行期領域邏輯（API 路由／Worker），不含這類獨立維運腳本；且備份需要「列出所有 bucket 所有物件」的能力，`StorageAdapter` 介面本身沒有 list 方法（只有 put/get/getSignedUrl/delete），為此擴充介面反而是不必要的耦合。
 - **A155（新增，依賴管理）**：Google Drive 上傳採手動 JWT（RS256，Node 內建 `crypto`）＋REST 呼叫（`fetch`），不新增 `googleapis` npm 套件依賴。**理由**：比照 KB-022／KB-033 一貫的最小成本解法原則；Node 22 內建 `crypto.sign()` 與全域 `fetch` 已完全足夠處理 service account JWT 簽發與 Drive API 呼叫，`googleapis` 是體積龐大的完整 SDK，僅為了「建資料夾＋上傳＋清舊檔」三個簡單呼叫引入不合比例。
 - **A156（新增，驗證強化，超出使用者原始要求）**：資料庫還原驗證做成**每次執行都自動驗證**，而非僅本輪驗收測一次。**理由**：PO 原始要求是「至少實測一次還原」，但 GitHub Actions 原生支援一次性 `postgres` service container，成本極低（每次執行約多花 1-2 分鐘、零額外費用），若只在本輪測一次，之後每天產生的備份其實都只是「假設格式沒變、應該還能還原」，不是真的驗證過；做成每次執行都驗證，才能長期兌現「沒測過還原的備份不算數」這個原則，而不只是通過本輪驗收的當下。還原用 `psql -v ON_ERROR_STOP=1`（任何 SQL 錯誤立即中止並回傳失敗），並比對還原後資料表清單與本專案已知 24 張表是否一致，兩項皆通過才算驗證成功。
-- **A157（新增，實作細節）**：保留天數判斷依**檔名內嵌日期**（`db-backup-YYYY-MM-DD.sql` 的日期部分），非 Google Drive 檔案的 `createdTime`。**理由**：若未來因故補跑或重跑某一天的備份，`createdTime` 會是「實際執行時間」而非「備份對應的資料日期」，用檔名日期判斷更貼合「保留最近 14 個資料日」的原始意圖，避免補跑時把舊資料日的備份誤判為新鮮。
+- **A157（新增，實作細節）**：保留天數判斷依**檔名內嵌日期**（`db-backup-YYYY-MM-DD.sql` 的日期部分），非雲端物件的 `createdTime`／`LastModified`。**理由**：若未來因故補跑或重跑某一天的備份，物件層級的時間戳會是「實際執行時間」而非「備份對應的資料日期」，用檔名日期判斷更貼合「保留最近 14 個資料日」的原始意圖，避免補跑時把舊資料日的備份誤判為新鮮。
+- **A158（新增，正式站驗收後修正，KB-042）**：上傳目的地由 Google Drive 改為 Cloudflare R2。**理由**：A155 原設計（service account JWT 上傳個人 Gmail Drive 共用資料夾）在正式站部署驗收時遭 Google 平台擋下（`HTTP 403 storageQuotaExceeded`——service account 對個人帳號 Drive 沒有儲存配額，官方僅提供 Shared Drives／OAuth domain-wide delegation 兩條路，皆為 Google Workspace 專屬功能），架構上走不通，非程式碼可修正的缺陷。PO 決定改用 Cloudflare R2（S3 相容物件儲存），PO 自建 bucket 與 API Token。
+- **A159（新增，依賴管理，取代 A155 的套件選型部分）**：R2 上傳改用官方 `@aws-sdk/client-s3` 套件，而非延續 A155「不新增套件、手刻 REST 呼叫」的最小依賴路線。**理由**：R2／S3 走 AWS SigV4 簽章協定，手刻簽章邏輯（canonical request 建構、簽名鏈推導）遠比 Google Drive 當初的 JWT RS256 簽發複雜、更容易有難以察覺的邊界錯誤（URI 編碼規則、header 正規化順序等）；在「最小依賴」與「用對正確且經過大量實戰驗證的官方工具、降低出錯風險」的取捨上，這裡選擇後者。A155 對 Google Drive／JWT 部分的判斷本身沒有錯，僅因整個上傳目的地被 A158 取代而失去適用對象。
 
 ## 10. 三層結構回溯
 
 - Feature：**E8-F1**（新增 Epic E8：維運與備份自動化，1/1，MVP 上線後追加，非原始 WBS 範圍）
-- 對應：KNOWN_ISSUES.md 第 2 項（Supabase 免費方案無自動備份／PITR，Sprint 24／KB-035）
-- 前置依賴：Google Drive 備份帳號層級設定（同日稍早完成，service account／Drive API／兩把 GitHub Secrets）
+- 對應：KNOWN_ISSUES.md「已解決」區（原第 2 項「Supabase 免費方案無自動備份／PITR」，Sprint 24／KB-035，本輪已解決）
+- 前置依賴：備份帳號層級設定（Supabase Session pooler 連線字串＋Cloudflare R2 bucket／API Token，皆由 PO 提供）

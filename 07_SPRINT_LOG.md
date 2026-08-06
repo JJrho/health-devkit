@@ -1,8 +1,34 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋修正 `metadataBase` 缺陷）＋push＋正式站部署驗證通過（2026-08-05），正式結案。Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E2-F5 無關、不互相阻塞。
+> 目前狀態：Sprint 27（E8-F1：每日自動備份）已 commit＋push＋正式站 GitHub Actions 實測全數通過（2026-08-06），正式結案，KNOWN_ISSUES.md「Supabase 無自動備份」項移至已解決。Sprint 26（og:image 補件＋E2-F5）、Sprint 25（E7-F1：公開站五頁）皆已正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E2-F5／E8-F1 無關、不互相阻塞。
 
-## Sprint 26 — og:image 補件＋E2-F5：原始掃描檔刪除引導提示 ✅ 實作＋測試＋正式站部署驗證皆完成，正式結案
+## Sprint 27 — E8-F1：每日自動備份（資料庫＋Storage → Cloudflare R2） ✅ 實作＋正式站 workflow 實測全數通過，正式結案
+
+- 期間：2026-08-05～2026-08-06
+- DOR：✅ 通過（sprints/sprint-27-dor.md；A152–A159 由 PO 追認，含實作後變更）
+- 目標：補上 KNOWN_ISSUES.md 長期記錄的「Supabase 免費方案無自動備份、無 PITR」缺口（Sprint 24／KB-035）——每日自動備份資料庫（`public` schema）＋Storage 全量物件，上傳雲端物件儲存，保留 14 天，且**每次執行皆自動驗證備份真的可還原**（非僅假設格式正確）。
+
+### 設計要點
+- `pg_dump` 僅備份 `public` schema，不含 Supabase 平台內部 schema／角色（A152）——明確排除 `auth.users`，這是「還原我方應用程式資料」與「還原整個 Supabase 專案狀態」的取捨，已誠實記錄於 DOR 排除項。
+- DB 備份需要獨立於 app runtime 的 Session pooler 連線字串（`SUPABASE_DB_URL_BACKUP`，A153）——Transaction pooler（既有 `DATABASE_URL`）依 Supabase 官方文件不支援 `pg_dump`，撰寫 DOR 階段即主動發現並向 PO 要正確連線字串，非實作時撞牆才發現。
+- Storage 備份直接呼叫 `@supabase/supabase-js`（比照既有 `scripts/setup-storage.ts` 慣例，A154），遞迴列出所有 bucket 所有物件、下載、打包 ZIP。
+- 還原驗證做成**每次執行都自動驗證**，非僅本輪驗收測一次（A156，超出 PO 原始「至少測一次」要求）：GitHub Actions 原生 `postgres` service container，`psql -v ON_ERROR_STOP=1` 還原剛產生的 dump，並比對還原後資料表數與已知 24 張表一致，任一失敗即整個 workflow run 失敗。
+- 保留天數依**檔名內嵌日期**判斷，非物件的時間戳（A157），避免補跑時誤判新舊。
+
+### 實作後變更：上傳目的地由 Google Drive 改為 Cloudflare R2（A158，KB-042）
+帳號層級設定原已完成（GCP service account、Drive API、Drive 資料夾共用、`GOOGLE_SERVICE_ACCOUNT_JSON`／`GOOGLE_DRIVE_FOLDER_ID`），資料庫與 Storage 兩份備份皆正確產生，唯獨上傳步驟在正式站 workflow 實測時穩定回傳 `HTTP 403 storageQuotaExceeded`——Google 官方明確訊息：service account 對個人 Gmail Drive **沒有任何儲存配額**，官方僅提供 Shared Drives／OAuth domain-wide delegation 兩條路，皆為 Google Workspace 專屬功能，個人帳號無法使用。這是架構性的平台限制，非程式碼問題，已誠實回報 PO 而非嘗試繞過。PO 決定改用 Cloudflare R2（S3 相容 API），提供 bucket 與四把新 Secrets。程式面刪除 `scripts/backup/google-drive.ts`／`upload-to-drive.ts`，新增 `scripts/backup/upload-to-r2.ts`，改用官方 `@aws-sdk/client-s3`（A159，理由：SigV4 簽章手刻風險遠高於 JWT，用官方 SDK 較穩妥，見 KB-042）。
+
+### 還原驗證除錯完整記錄（KB-041）
+資料庫還原驗證（AC-2）從第一次觸發到全部通過，共踩過五層各自獨立、只有在 GitHub Actions 真實環境才會現形的問題：①`SUPABASE_DB_URL_BACKUP` 密碼認證失敗（憑證內容問題）②runner 預設 `postgresql-client` 16.14 舊於 Supabase 伺服器 17.6，需加官方 PGDG 套件庫＋改用版本化明確路徑（`update-alternatives` 未如預期指向新版）③`--clean --if-exists` 讓 dump 對「目標已有預設 public schema」具備冪等性④擴充套件（`vector`／`pg_trgm`）不在 `--schema=public` 的 dump 範圍內，但索引明確寫成 `public.gin_trgm_ops` 帶 schema 前綴，search_path 技巧無效，須用 `sed` 把 `CREATE EXTENSION` 插在 dump 自己的 `CREATE SCHEMA public;` 之後、且需帶 `SCHEMA public`（新版 pg_dump 安全考量會清空 search_path）⑤還原目標服務容器改用官方 `pgvector/pgvector:pg17`（stock postgres 無內建 pgvector）。每一層都是實際觸發 workflow 才暴露，本機因缺 `pg_dump` 與 Docker 異常（KB-034 同款環境限制）無法預先發現。
+
+### 驗收結果（AC-1～AC-7）
+全數通過：AC-1（DB 備份產生）、AC-2（還原驗證，零錯誤且表數一致）、AC-3（Storage 備份產生，1 bucket／9 物件）、AC-4（上傳 R2，`db-backup-2026-08-06.sql` 407231 bytes＋`storage-backup-2026-08-06.zip` 8394 bytes 皆確認出現於 bucket）、AC-5（保留天數清理邏輯執行，本次 0 個超過 14 天）、AC-6（`workflow_dispatch` 手動觸發驗收）、AC-7（過程中十餘次失敗皆讓 workflow run 明確標記失敗，未曾靜默產出壞掉的備份）。
+
+### 額外發現：Supabase Legacy API Keys（KB-043）
+除錯 Storage 步驟時發現 Supabase 後台目前預設顯示新版 Publishable/Secret Key 系統，Legacy（`eyJ` 開頭 JWT 格式）金鑰藏在同頁面右側獨立分頁，容易被忽略，PO 一度誤用新版格式導致 `Invalid Compact JWS`。已列入 KNOWN_ISSUES.md 觀察項（本專案全站仍依賴 Legacy 格式，非本輪處理範圍）。
+
+### 下一步
+無（本輪已結案）。KNOWN_ISSUES.md 第 10 項（Legacy API Keys）列入觀察，非急迫。
 
 - 期間：2026-08-05（單日完成）
 - 觸發：PO 與王醫師溝通產品個資疑慮過程中發現的兩個小型缺口，皆屬既定收尾／低風險追加

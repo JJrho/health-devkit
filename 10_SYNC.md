@@ -1,6 +1,8 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
+**Sprint 27（E8-F1：每日自動備份，新增 Epic E8）已 commit＋push＋正式站 GitHub Actions `workflow_dispatch` 實測全數通過，正式結案（2026-08-06）**——每日（UTC 18:00＝台灣凌晨 2 點）自動備份資料庫（`public` schema）＋Storage 全量物件，上傳 Cloudflare R2，保留 14 天，且**每次執行皆自動驗證備份真的可還原**（GitHub Actions 一次性 postgres service container 還原＋比對表數，超出 PO 原始「至少測一次」要求，A156）。**實作後變更**：原設計走 Google Drive（帳號層級設定已完成：service account、Drive API、Drive 資料夾共用），正式站驗收時撞上 Google 平台限制——service account 對個人 Gmail Drive 沒有儲存配額（`HTTP 403 storageQuotaExceeded`，官方僅提供 Workspace 專屬的 Shared Drives／OAuth domain-wide delegation 兩條路），非程式碼問題，PO 決定改用 Cloudflare R2（S3 相容 API，A158，KB-042），改用官方 `@aws-sdk/client-s3` 套件（A159）。資料庫還原驗證除錯過程踩過五層真實環境問題（PGDG 套件庫、pg_dump 版本解析、schema 衝突、擴充套件注入順序、search_path 清空），完整記錄見 KB-041。正式站實測：R2 bucket 確認出現 `db-backup-2026-08-06.sql`（407231 bytes）與 `storage-backup-2026-08-06.zip`（8394 bytes）。KNOWN_ISSUES.md「Supabase 無自動備份」項已移至已解決；額外發現 Supabase Legacy API Keys 頁面位置容易被忽略（KB-043），列入觀察項（非急迫）。詳見 07_SPRINT_LOG、sprints/sprint-27-dor.md。
+
 **Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋metadataBase 修正）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——PO 提供 `og-image.jpg` 補上 OG 分享卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 既有功能）缺乏使用者引導，新增 E2-F5 補提示文案（不做自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。**正式站部署驗證發現並修正真實缺陷**：`og:image` 缺 `metadataBase` 解析成容器內部位址而非正式站網域，外部服務完全抓不到圖片，本機驗證階段未現形（KB-040），修正後本機與正式站皆確認正確。詳見 07_SPRINT_LOG、sprints/sprint-26-dor.md。
 
 **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——取代 `src/app/page.tsx` 過渡版 Hero，新增 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面，補齊新增 Epic E7（見 05_BACKLOG、13_ROADMAP、sprints/sprint-25-dor.md、07_SPRINT_LOG、KB-037）。文字逐字採用 PO 與 Claude Chat 定案之 `14_PUBLIC_SITE_COPY.md`；全專案 209 個測試（+1）／typecheck／lint／build 全綠；五頁 axe-core 零 Critical／Serious 違規；正式站真實網域驗證五頁內容與 OG meta 皆正確，第三方 OG 除錯工具確認分享卡片標題／描述無截斷。`og:image` 本輪不提供（PO 確認，無素材，A151），**PO 已明確要求列為部署後近期待辦**（KNOWN_ISSUES.md 第 9 項），不拖到下次大改版。
@@ -64,7 +66,7 @@ Sprint 7（E2-F2 文字型 PDF 解析管線 PoC 1/2）：A22（`pdfjs-dist` 伺�
 Sprint 6（E2-F1 上傳會話與預覽模組）：已 commit（`b2b413f`）＋push＋正式站部署驗證通過。⚠️ A21（惡意檔案掃描缺口）正式生效，登記 KB-021。
 
 ## 4. 下一步
-**下次有真實使用者走過上傳→確認流程時，順手確認一次 E2-F5 刪除引導提示（`confirmed` 狀態才顯示）是否正確渲染並記錄結果**（PO 2026-08-05 指示，見 KNOWN_ISSUES.md 第 8 項；本輪僅單元測試驗證，未走過完整登入後真實瀏覽器流程）。MVP 原始範圍：**全案 20 個 Feature 全數完成並正式站部署驗證通過**，上線前唯一仍待處理：台灣個資與醫療法律審查（外部人工事項，見 KNOWN_ISSUES.md，與 E7-F1 無關不互相阻塞）；其餘非阻塞待辦：知識庫真實內容已擴充至 30/38 章節（2026-07-24，見下方§3，PART4 全 8 章節已轉錄完成），剩餘 8 章節（分屬 PART1／PART2／PART3）轉錄方式待決定；KB-018／KB-020 待 PO 決定處理時機；Google OAuth 同意畫面應用程式名稱客製化（純品牌體感）。
+**下次有真實使用者走過上傳→確認流程時，順手確認一次 E2-F5 刪除引導提示（`confirmed` 狀態才顯示）是否正確渲染並記錄結果**（PO 2026-08-05 指示，見 KNOWN_ISSUES.md 第 7 項；本輪僅單元測試驗證，未走過完整登入後真實瀏覽器流程）。MVP 原始範圍：**全案 20 個 Feature 全數完成並正式站部署驗證通過**，上線前唯一仍待處理：台灣個資與醫療法律審查（外部人工事項，見 KNOWN_ISSUES.md，與 E7-F1／E2-F5／E8-F1 無關不互相阻塞）；其餘非阻塞待辦：知識庫真實內容已擴充至 30/38 章節（2026-07-24，見下方§3，PART4 全 8 章節已轉錄完成），剩餘 8 章節（分屬 PART1／PART2／PART3）轉錄方式待決定；KB-018／KB-020 待 PO 決定處理時機；Google OAuth 同意畫面應用程式名稱客製化（純品牌體感）；Supabase Legacy API Keys 未來可能棄用需評估遷移（KNOWN_ISSUES.md 第 10 項，非急迫）。
 
 ## 5. 最高優先事項
 台灣個資與醫療法律審查（上線硬門檻，外部事項，唯一剩餘待辦）；剩餘 8 章節（分屬 PART1／PART2／PART3）真實內容的轉錄方式待決定（非阻塞）；KB-018（RLS BYPASSRLS）與 KB-020（E1-F2 登入問題，C6 牴觸）待決定處理時機（非阻塞）。

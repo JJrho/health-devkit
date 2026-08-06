@@ -297,5 +297,39 @@ PO 提供 `og-image.jpg`（1200x630，JPEG，約 82KB，符合 OG 卡片建議�
 - 影響範圍：僅影響本次新增的 `og:image`（`og:title`／`og:description` 為純文字欄位，不受 `metadataBase` 影響，Sprint 25 部署驗證時已確認正確，未受此缺陷波及）；`metadataBase` 為全站 layout 層級設定，未來任何頁面若使用相對路徑的 `openGraph.images`／`twitter.images`／`alternates.canonical` 等欄位皆會受益、不需各自處理。
 - 未來避免：**任何在 Next.js Metadata API 中使用相對路徑的圖片／連結欄位（`openGraph.images`、`twitter.images`、`alternates.canonical` 等），一律要有 root layout 的 `metadataBase` 才算完整**；本機驗證「路徑看起來正確」不足以證明正式環境也正確——這與 KB-025／KB-028 一貫強調的「本機通過不代表正式環境行為一致」同一類教訓，差別在於這次連本機驗證階段都看不出問題（本機 dev server 內外位址剛好相同，掩蓋了缺陷），必須額外記得：**任何涉及「絕對網址」的 metadata 欄位，本機驗證只能證明相對路徑寫對了，無法證明絕對網址真的解析到對外可達的網域，一定要在正式站環境實測才算數**。
 
+## KB-041 E8-F1 資料庫還原驗證：一次踩齊五層真實障礙的完整記錄
+
+- 類型：真實缺陷／除錯記錄（Sprint 27，2026-08-06，正式站部署驗收時發現）
+- 內容：`daily-backup.yml` 的還原驗證步驟（AC-2，A156）從第一次觸發到全部通過，共踩過五個各自獨立、逐層才會現形的真實問題，每一個都要實際跑一次 GitHub Actions 才會暴露，本機無法預先發現（本機無 `pg_dump`、Docker 又壞，見 KB-034 同款環境限制）：
+  1. **連線密碼認證失敗**：`SUPABASE_DB_URL_BACKUP`（Session pooler）密碼貼錯／貼漏，反覆出現 `password authentication failed for user "postgres"`——這與帳密本身無關的環境問題（PGDG／版本）完全不同類，純粹是憑證內容問題，PO 反覆重新從 Supabase 後台複製才排除。
+  2. **pg_dump 版本落後於伺服器**：GitHub Actions runner 不指定版本裝到 `postgresql-client` 16.14，Supabase 伺服器是 17.6，`pg_dump` 直接拒絕（`aborting because of server version mismatch`）。Ubuntu noble 原生套件庫只到 16，需先加官方 PGDG apt 套件庫才有 `postgresql-client-17`；裝完後 PATH 上的 `pg_dump` 仍解析到舊版（`update-alternatives` 未如預期指向新版），改用版本化明確路徑 `/usr/lib/postgresql/17/bin/pg_dump` 才穩定生效。
+  3. **`--clean` 讓 dump 自己的 `CREATE SCHEMA public;` 撞上目標的預設 schema**：一次性還原目標容器（任何全新 Postgres 資料庫）預設就有 `public` schema，不加 `--clean --if-exists` 會報 `schema "public" already exists`。
+  4. **擴充套件不在 `--schema=public` 的 dump 範圍內，且必須裝在 public 裡**：本專案用到 `vector`（A54）與 `pg_trgm`（KB-029）兩個擴充套件，但 `--schema=public` 的 dump 不含 `CREATE EXTENSION`，而索引物件卻明確寫成 `public.gin_trgm_ops`（帶 schema 前綴）——試過「裝進獨立 extensions schema＋設 search_path」，因為新版 `pg_dump` 為安全考量會在檔頭 `set_config('search_path','',false)`，全篇一律用明確 schema 前綴，search_path 對已限定 schema 的參照完全無效，唯一可行的是讓擴充套件真的物理存在於 `public` schema。且 `--clean` 的 `DROP SCHEMA public CASCADE` 會把裝在 public 裡的擴充套件一併砍掉，所以不能在還原「之前」預先裝——只能用 `sed` 把 `CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;`／`pg_trgm SCHEMA public;` 插在 dump 檔案自己的 `CREATE SCHEMA public;` 那一行之後，確保執行順序落在「public 剛被重建、其餘表格索引尚未建立」的正確時間點。stock `postgres` Docker 映像沒有內建 `vector`，另外把還原目標服務容器換成官方 `pgvector/pgvector:pg17`。
+  5. **注入的 CREATE EXTENSION 語句本身也要帶明確 SCHEMA**：承上，因為 search_path 被清空，就連我自己插入的 `CREATE EXTENSION IF NOT EXISTS vector;`（未寫 `SCHEMA public`）也會報 `no schema has been selected to create in`，必須明確寫成 `CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;`。
+- 已完成處置：詳見 `.github/workflows/daily-backup.yml` 目前版本（commit `d4f2d1b` 為最後一次資料庫還原相關修正，其後的 commit 是目的地由 Google Drive 改 R2）；正式站部署驗收以 `workflow_dispatch` 實測全數通過，還原後資料表數與本專案已知 24 張表一致。
+- 影響範圍：任何未來要「用 `pg_dump --schema=xxx` 產生可被完整還原的備份」且該 schema 內有物件依賴擴充套件（索引運算子類別、函式）的專案，都會踩到第 4／5 點——`--schema` 過濾器不含擴充套件定義是 pg_dump 一貫行為，非本專案特例。
+- 未來避免：**任何自動化「產生備份 → 還原驗證」的流程，第一次一定要在目標實際執行環境（本例是 GitHub Actions runner，非本機）跑過至少一次完整成功，不能只憑本機或理論推導就假設會成功**——本例五層問題中，有三層（PGDG 套件庫、`update-alternatives` 版本解析、pg_dump 新版 search_path 清空行為）完全是「這個特定 runner 環境／這個特定 pg_dump 版本」才會出現的細節，本機環境（若有裝 pg_dump）不一定會踩到同樣的坑。這與 KB-025／KB-028／KB-040 一貫強調的「本機或理論上正確不代表實際環境正確，一定要在真實目標環境跑過」同一類教訓。
+
+## KB-042 Google Drive 備份上傳目的地改為 Cloudflare R2：service account 對個人 Gmail Drive 沒有儲存配額
+
+- 類型：架構決策修正（Sprint 27，2026-08-06，正式站部署驗收時發現的平台限制，非程式錯誤）
+- 內容：E8-F1 原設計（見帳號層級設定記錄）為建立 Google Cloud service account，共用一個 PO 個人 Gmail 底下的 Drive 資料夾（設為該資料夾的編輯者），由 service account 直接呼叫 Drive API 上傳。帳號層級設定（service account、Drive API 啟用、資料夾共用、`GOOGLE_SERVICE_ACCOUNT_JSON`／`GOOGLE_DRIVE_FOLDER_ID` 兩把 GitHub Secrets）皆已完成，資料庫與 Storage 兩份備份也都正確產生，唯獨上傳這一步在正式站 workflow 實測時穩定回傳：
+  ```
+  HTTP 403 storageQuotaExceeded
+  "Service Accounts do not have storage quota. Leverage shared drives, or use OAuth delegation instead."
+  ```
+  這是 Google 官方明確訊息，非本專案程式碼問題：Google 政策明訂 **service account 本身沒有任何個人儲存配額**，即使被分享資料夾的編輯者權限、能列出/新增檔案中繼資料，實際寫入位元組時仍會被配額檢查擋下。官方提供的兩條路都是 **Google Workspace（付費企業版）專屬功能**——「Shared Drives」需要 Workspace 帳號才能建立；「OAuth domain-wide delegation」需要 Workspace 系統管理控制台授權 service account 代表網域內使用者操作，個人 `@gmail.com` 帳號完全沒有這兩項功能的入口。換言之，**用 service account 直接寫入個人 Gmail 帳號的 Drive，架構上就是走不通的路，不是任何程式碼調整能解決的**。
+- 已完成處置：PO 決定改用 Cloudflare R2（S3 相容物件儲存 API）作為新目的地。PO 自行於 Cloudflare 後台建立 bucket（`health-devkit-backups`）與 API Token，提供四把新 GitHub Secrets（`CLOUDFLARE_ACCOUNT_ID`／`R2_ACCESS_KEY_ID`／`R2_SECRET_ACCESS_KEY`／`R2_BUCKET_NAME`）。程式面刪除 `scripts/backup/google-drive.ts`／`upload-to-drive.ts`，新增 `scripts/backup/upload-to-r2.ts`，改用官方 `@aws-sdk/client-s3` 套件（而非比照 Google Drive 當初手刻 JWT+REST 的最小依賴做法）——理由是 R2／S3 走 AWS SigV4 簽章協定，手刻簽章邏輯（canonical request、簽名鏈）遠比 JWT RS256 簽發複雜、更容易有難以察覺的邊界錯誤，用官方 SDK 風險遠低於手刻，在「最小依賴」與「用對正確工具」的取捨上，這裡選擇後者。`.github/workflows/daily-backup.yml` 對應改用四把新 secrets。
+- 影響範圍：先前建立的 GCP service account（`health-devkit-backup@personal-health-mgmt-devkit.iam.gserviceaccount.com`）、Drive API 啟用、共用資料夾（`health-devkit-backups`，Drive folder id）、`GOOGLE_SERVICE_ACCOUNT_JSON`／`GOOGLE_DRIVE_FOLDER_ID` 兩把 GitHub Secrets 皆已閒置未用，未主動清除（非破壞性操作不主動執行，若未來確認不再需要可由 PO 決定是否清理）。
+- 未來避免：**任何要用「服務帳號／機器人身份」寫入個人（非企業）雲端儲存服務的設計，開工前應先查證該服務對「服務帳號 vs. 個人帳號」的配額與權限模型，不能只驗證「有沒有存取權限」（分享/授權成功 ≠ 真的能寫入位元組）**——本案的 service account 明明被加入共用名單、Drive UI 上看得到它是編輯者，直到真正呼叫上傳 API 才會現形這個限制，僅測試「列出資料夾」「建立資料夾」這類中繼資料操作是不夠的，必須實測真正的資料寫入（本例即上傳檔案）才算驗證過。與 KB-025 一貫強調的「不能只看服務啟動就結案，要驗證真實功能」同一類教訓，這次的變體是「連結不代表使用權」。
+
+## KB-043 尋找 Supabase Legacy service_role key：藏在「Publishable and secret API keys」頁面右側的獨立分頁
+
+- 類型：操作提醒（Sprint 27，2026-08-06，E8-F1 除錯過程中發現）
+- 內容：E8-F1 的 Storage 備份腳本（`scripts/backup/dump-storage.ts`）呼叫 `@supabase/supabase-js` 需要 `SUPABASE_SERVICE_ROLE_KEY`。第一次設定的值在 workflow 實測時回傳 `Invalid Compact JWS`（JWT 格式解析失敗），PO 重新尋找時發現：Supabase 後台目前的 API 金鑰頁面預設顯示的是**新版** Publishable／Secret Key 系統（非 JWT 格式），本專案 `SupabaseAuthAdapter`／`SupabaseStorageAdapter`（含既有正式站環境變數）與本次備份腳本用的都還是**舊版**（Legacy）`eyJ` 開頭的 JWT 格式 `anon`／`service_role` 金鑰——這兩species金鑰**外觀完全不同、不能互換使用**。Legacy 金鑰的實際位置容易被忽略：在「Publishable and secret API keys」頁面**右側**另有一個獨立分頁「Legacy anon, service_role API keys」，不在預設可見的主要區塊內，第一次找容易漏掉、誤用新版 Secret Key 或複製不完整。
+- 已完成處置：PO 於該 Legacy 分頁重新取得正確的 `eyJ` 開頭 `service_role` key，重新 `gh secret set SUPABASE_SERVICE_ROLE_KEY`，Storage 備份步驟即正確運作。
+- 影響範圍：任何未來需要重新取得或輪替本專案 Supabase 金鑰（`SUPABASE_ANON_KEY`／`SUPABASE_SERVICE_ROLE_KEY`／`NEXT_PUBLIC_SUPABASE_ANON_KEY`）的場合，都要記得去 Legacy 分頁找，不是後台預設顯示的頁面。
+- 未來避免：**Supabase 已在後台明確標示新版 Publishable/Secret Key 系統，並提供「Disable JWT-based API keys」選項——代表 Legacy 格式未來可能被停用**。本專案目前全站（`SupabaseAuthAdapter`、`SupabaseStorageAdapter`、本次備份腳本）皆仍依賴 Legacy JWT 格式金鑰，這是需要持續關注的技術債，已列入 `KNOWN_ISSUES.md`（非本輪處理範圍，見該文件對應項目）。
+
 ## 新紀錄模板
 （依方法論 13.2 節）

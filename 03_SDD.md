@@ -190,6 +190,8 @@ MVP 僅站內提醒：檢討到期、待確認資料、計畫暫停原因。Emai
 
 **Sprint 26（2026-08-05）兩項小型追加**：①`og:image` 補件——PO 提供 `og-image.jpg`（1200x630，JPEG）存入 `public/og-image.jpg`，`src/app/page.tsx` 補上 `metadata.openGraph.images`，KB-037 已解決，KNOWN_ISSUES.md 第 9 項移除。②**E2-F5 原始掃描檔刪除引導提示**（新 Feature，見上方 §5、sprints/sprint-26-dor.md）：與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 已存在）缺乏使用者引導，本輪補提示文案，不改動既有刪除／匯出邏輯（不自動刪除，PO 拍板理由見 KB-038）；同時整理一份給王醫師的技術現況說明（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化的誠實揭露）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。③正式站部署驗證時發現並修正真實缺陷（KB-040）：`og:image` 缺 `metadataBase` 導致解析成容器內部位址而非正式站網域，已修正並二次部署驗證通過。
 
+**Sprint 27（2026-08-05～08-06，新增 Epic E8-F1：每日自動備份）**：補上 KNOWN_ISSUES.md 長期記錄的「Supabase 免費方案無自動備份、無 PITR」缺口（Sprint 24／KB-035），新增 `.github/workflows/daily-backup.yml` 每日（UTC 18:00＝台灣凌晨 2 點）自動備份資料庫（`public` schema）＋Storage 全量物件，上傳 Cloudflare R2，保留 14 天，且**每次執行皆自動驗證備份真的可還原**（GitHub Actions 一次性 `postgres` service container 還原＋比對表數，超出 PO 原始「至少測一次」要求，A156）。**實作後變更**：原設計走 Google Drive（帳號層級設定已完成），正式站驗收時撞上 Google 平台限制——service account 對個人 Gmail Drive 沒有儲存配額（`HTTP 403 storageQuotaExceeded`，官方僅提供 Workspace 專屬的 Shared Drives／OAuth delegation 兩條路），非程式碼問題，改用 Cloudflare R2（A158，KB-042）。資料庫還原驗證除錯過程踩過五層真實環境問題（PGDG 套件庫、pg_dump 版本解析、schema 衝突、擴充套件注入順序、search_path 清空），完整記錄見 KB-041。正式站 `workflow_dispatch` 手動觸發實測 AC-1～AC-7 全數通過，R2 bucket 確認出現當日兩個備份檔案。額外發現 Supabase Legacy API Keys 頁面位置容易被忽略（KB-043），已列入 KNOWN_ISSUES.md 觀察項。
+
 ## 16. 相關文件索引
 
 - 上游完整規格：archive/個人健康檢查管理平台_規格整理_v1_2_2.md（含 §29 BDD、§30 Edge、§31 Abuse、§33 Stage 計畫）

@@ -97,7 +97,7 @@
 
 | Feature | 名稱 | 對應 SDD | 前置依賴 | 外部依賴 | 風險 | PoC | Sprint 數 | 狀態 |
 |---|---|---|---|---|---|---|---|---|
-| E8-F1 | 每日自動備份（資料庫＋Storage → Google Drive，含每次自動還原驗證） | 無（純維運） | 無 | Google Cloud 服務帳號＋Drive API（PO 已設定）；Supabase Session pooler 連線字串（PO 提供） | 🟡 | 否 | 1 | ⚪ |
+| E8-F1 | 每日自動備份（資料庫＋Storage → Cloudflare R2，含每次自動還原驗證） | 無（純維運） | 無 | Cloudflare R2 bucket＋API Token（PO 已設定）；Supabase Session pooler 連線字串（PO 提供）。原設計走 Google Drive，正式站驗收時撞上 service account 個人帳號無儲存配額的平台限制，改 R2（A158，KB-042） | 🟡 | 否 | 1 | ⚪ |
 
 ## 建議 Sprint 順序（高風險前置原則）
 

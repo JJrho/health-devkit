@@ -13,7 +13,8 @@
 4. ✅ 粗估 17／精估 24；WBS 三層拆解＋三輪檢查通過（05_BACKLOG、13_ROADMAP）
 5. ✅ **Sprint 1～24（E1–E6，全案 20 個原始 MVP Feature）全數完成，正式站部署驗證通過（2026-07-22，Sprint 24 結案）**——僅剩台灣個資與醫療法律審查（外部人工事項）為上線硬門檻，見 KNOWN_ISSUES.md
 6. ✅ **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已完成並正式站部署驗證通過（2026-08-05）**——取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面
-7. ✅ **Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已完成並正式站部署驗證通過（2026-08-05）**——部署驗證中發現並修正 `og:image` 缺 `metadataBase` 的真實缺陷（KB-040）；E2-F5 完整登入端到端驗證留待下次真實上傳流程時補做（KNOWN_ISSUES.md 第 8 項）
+7. ✅ **Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已完成並正式站部署驗證通過（2026-08-05）**——部署驗證中發現並修正 `og:image` 缺 `metadataBase` 的真實缺陷（KB-040）；E2-F5 完整登入端到端驗證留待下次真實上傳流程時補做（KNOWN_ISSUES.md 第 7 項）
+8. ✅ **Sprint 27（E8-F1：每日自動備份，新增 Epic E8）已完成並正式站 GitHub Actions 實測全數通過（2026-08-06）**——每日自動備份資料庫＋Storage 至 Cloudflare R2，保留 14 天，每次執行皆自動驗證備份真的可還原。原設計走 Google Drive，正式站驗收撞上 service account 對個人帳號無儲存配額的平台限制，改用 R2（KB-042）。KNOWN_ISSUES.md「Supabase 無自動備份」項已移至已解決
 
 ## 接手必讀順序
 02_CONSTITUTION → 03_SDD（含 §17 決議定案值）→ 05_BACKLOG → 13_ROADMAP → 06_DOR_DOD → 10_SYNC
