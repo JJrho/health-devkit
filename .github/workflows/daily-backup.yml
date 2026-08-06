@@ -65,9 +65,13 @@ jobs:
         # 明確指定版本化路徑，不依賴 PATH／update-alternatives 解析到哪個
         # pg_dump——實測發現即使裝了 postgresql-client-17，PATH 上的
         # pg_dump 仍解析到 runner 預先安裝的舊版 16.14。
+        # --clean --if-exists：dump 內含 DROP ... IF EXISTS 於 CREATE 之前，
+        # 讓還原對「目標已存在 public schema」（任何全新 Postgres 資料庫的
+        # 預設狀態，含還原驗證用的一次性容器）具備冪等性，不會卡在
+        # schema "public" already exists。
         run: |
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL_BACKUP" \
-            --schema=public --no-owner --no-privileges \
+            --schema=public --no-owner --no-privileges --clean --if-exists \
             -f "db-backup-${{ steps.date.outputs.today }}.sql"
 
       - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
