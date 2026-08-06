@@ -71,28 +71,24 @@ jobs:
         # 讓還原對「目標已存在 public schema」（任何全新 Postgres 資料庫的
         # 預設狀態，含還原驗證用的一次性容器）具備冪等性，不會卡在
         # schema "public" already exists。
+        # --schema=public 的 dump 不含 CREATE EXTENSION（擴充套件非 schema
+        # 物件），但索引等物件會明確寫成 public.gin_trgm_ops 這種帶 schema
+        # 前綴的寫法——search_path 技巧無效，擴充套件必須真的裝在 public
+        # 裡。用 sed 把本專案實際使用的兩個擴充套件（drizzle/0000／0009，
+        # KB-029／A54）插在 dump 自己的 CREATE SCHEMA public; 之後，確保
+        # 這兩行在「public 剛被重建、其餘表格與索引尚未建立」的時間點執行。
         run: |
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL_BACKUP" \
             --schema=public --no-owner --no-privileges --clean --if-exists \
             -f "db-backup-${{ steps.date.outputs.today }}.sql"
+          sed -i '/^CREATE SCHEMA public;/a CREATE EXTENSION IF NOT EXISTS vector;\nCREATE EXTENSION IF NOT EXISTS pg_trgm;' \
+            "db-backup-${{ steps.date.outputs.today }}.sql"
 
       - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
-        # --schema=public 的 dump 不含 CREATE EXTENSION（擴充套件非 schema
-        # 物件），需在載入 dump 前手動建立本專案實際使用的兩個擴充套件
-        # （drizzle/0000／0009 migration，見 KB-029／A54）。因 dump 帶
-        # --clean 會 DROP SCHEMA public CASCADE，若擴充套件裝在 public
-        # 裡會被一併砍掉，故改裝進獨立的 extensions schema，並設定
-        # search_path 讓 dump 內未加 schema 前綴的 gin_trgm_ops 仍能解析到。
         run: |
           set -e
           PSQL=/usr/lib/postgresql/17/bin/psql
           TARGET="postgresql://postgres:postgres@localhost:5432/postgres"
-          "$PSQL" "$TARGET" -v ON_ERROR_STOP=1 -c "
-            CREATE SCHEMA IF NOT EXISTS extensions;
-            CREATE EXTENSION IF NOT EXISTS vector SCHEMA extensions;
-            CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA extensions;
-            ALTER DATABASE postgres SET search_path TO public, extensions;
-          "
           "$PSQL" "$TARGET" \
             -v ON_ERROR_STOP=1 -f "db-backup-${{ steps.date.outputs.today }}.sql"
           TABLE_COUNT=$("$PSQL" "$TARGET" \
