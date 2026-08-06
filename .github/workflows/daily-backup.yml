@@ -73,15 +73,18 @@ jobs:
         # schema "public" already exists。
         # --schema=public 的 dump 不含 CREATE EXTENSION（擴充套件非 schema
         # 物件），但索引等物件會明確寫成 public.gin_trgm_ops 這種帶 schema
-        # 前綴的寫法——search_path 技巧無效，擴充套件必須真的裝在 public
-        # 裡。用 sed 把本專案實際使用的兩個擴充套件（drizzle/0000／0009，
+        # 前綴的寫法。新版 pg_dump 為安全考量會在檔頭執行
+        # set_config('search_path','',false) 讓全篇改用明確 schema 前綴，
+        # 故插入的 CREATE EXTENSION 也必須帶 SCHEMA public，不能依賴
+        # search_path（會報 "no schema has been selected to create in"）。
+        # 用 sed 把本專案實際使用的兩個擴充套件（drizzle/0000／0009，
         # KB-029／A54）插在 dump 自己的 CREATE SCHEMA public; 之後，確保
         # 這兩行在「public 剛被重建、其餘表格與索引尚未建立」的時間點執行。
         run: |
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL_BACKUP" \
             --schema=public --no-owner --no-privileges --clean --if-exists \
             -f "db-backup-${{ steps.date.outputs.today }}.sql"
-          sed -i '/^CREATE SCHEMA public;/a CREATE EXTENSION IF NOT EXISTS vector;\nCREATE EXTENSION IF NOT EXISTS pg_trgm;' \
+          sed -i '/^CREATE SCHEMA public;/a CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;' \
             "db-backup-${{ steps.date.outputs.today }}.sql"
 
       - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
