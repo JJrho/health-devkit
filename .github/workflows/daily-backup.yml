@@ -17,8 +17,10 @@ jobs:
     services:
       restore-target:
         # 版本需與 Supabase 伺服器（17.6）一致，避免 pg_dump 輸出的 DDL 含新版
-        # 專屬語法而在舊版目標無法還原。
-        image: postgres:17
+        # 專屬語法而在舊版目標無法還原。用 pgvector 官方映像（非純 postgres），
+        # 因為本專案 migration 0000 建了 vector 擴充套件（A54），stock postgres
+        # 映像沒有內建 pgvector，CREATE EXTENSION vector 會直接失敗。
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_PASSWORD: postgres
         ports:
@@ -75,12 +77,25 @@ jobs:
             -f "db-backup-${{ steps.date.outputs.today }}.sql"
 
       - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
+        # --schema=public 的 dump 不含 CREATE EXTENSION（擴充套件非 schema
+        # 物件），需在載入 dump 前手動建立本專案實際使用的兩個擴充套件
+        # （drizzle/0000／0009 migration，見 KB-029／A54）。因 dump 帶
+        # --clean 會 DROP SCHEMA public CASCADE，若擴充套件裝在 public
+        # 裡會被一併砍掉，故改裝進獨立的 extensions schema，並設定
+        # search_path 讓 dump 內未加 schema 前綴的 gin_trgm_ops 仍能解析到。
         run: |
           set -e
           PSQL=/usr/lib/postgresql/17/bin/psql
-          "$PSQL" "postgresql://postgres:postgres@localhost:5432/postgres" \
+          TARGET="postgresql://postgres:postgres@localhost:5432/postgres"
+          "$PSQL" "$TARGET" -v ON_ERROR_STOP=1 -c "
+            CREATE SCHEMA IF NOT EXISTS extensions;
+            CREATE EXTENSION IF NOT EXISTS vector SCHEMA extensions;
+            CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA extensions;
+            ALTER DATABASE postgres SET search_path TO public, extensions;
+          "
+          "$PSQL" "$TARGET" \
             -v ON_ERROR_STOP=1 -f "db-backup-${{ steps.date.outputs.today }}.sql"
-          TABLE_COUNT=$("$PSQL" "postgresql://postgres:postgres@localhost:5432/postgres" \
+          TABLE_COUNT=$("$PSQL" "$TARGET" \
             -t -c "select count(*) from information_schema.tables where table_schema='public';" | tr -d ' ')
           echo "還原後 public schema 資料表數：$TABLE_COUNT"
           if [ "$TABLE_COUNT" -lt 24 ]; then
