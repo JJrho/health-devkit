@@ -62,17 +62,21 @@ jobs:
       - name: 資料庫備份（AC-1，僅 public schema，A152）
         env:
           SUPABASE_DB_URL_BACKUP: ${{ secrets.SUPABASE_DB_URL_BACKUP }}
+        # 明確指定版本化路徑，不依賴 PATH／update-alternatives 解析到哪個
+        # pg_dump——實測發現即使裝了 postgresql-client-17，PATH 上的
+        # pg_dump 仍解析到 runner 預先安裝的舊版 16.14。
         run: |
-          pg_dump "$SUPABASE_DB_URL_BACKUP" \
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL_BACKUP" \
             --schema=public --no-owner --no-privileges \
             -f "db-backup-${{ steps.date.outputs.today }}.sql"
 
       - name: 還原驗證（AC-2，A156：每次執行皆自動驗證，非僅驗收測一次）
         run: |
           set -e
-          psql "postgresql://postgres:postgres@localhost:5432/postgres" \
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          "$PSQL" "postgresql://postgres:postgres@localhost:5432/postgres" \
             -v ON_ERROR_STOP=1 -f "db-backup-${{ steps.date.outputs.today }}.sql"
-          TABLE_COUNT=$(psql "postgresql://postgres:postgres@localhost:5432/postgres" \
+          TABLE_COUNT=$("$PSQL" "postgresql://postgres:postgres@localhost:5432/postgres" \
             -t -c "select count(*) from information_schema.tables where table_schema='public';" | tr -d ' ')
           echo "還原後 public schema 資料表數：$TABLE_COUNT"
           if [ "$TABLE_COUNT" -lt 24 ]; then
