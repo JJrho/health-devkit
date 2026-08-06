@@ -42,10 +42,18 @@ jobs:
       - name: 安裝依賴
         run: pnpm install --frozen-lockfile
 
-      # 不指定版本的 postgresql-client 在 GitHub Actions runner 上解析到 16.14，
-      # 比 Supabase 伺服器（17.6）舊，pg_dump 會直接拒絕執行，故明確指定 -17。
+      # Ubuntu noble 原生套件庫只到 postgresql-client-16，比 Supabase 伺服器
+      # （17.6）舊，pg_dump 會直接拒絕執行；需先加官方 PGDG 套件庫才有 -17。
       - name: 安裝 postgresql-client-17（pg_dump／psql）
-        run: sudo apt-get update && sudo apt-get install --yes postgresql-client-17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
 
       - name: 設定日期標籤
         id: date
