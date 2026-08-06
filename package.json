@@ -17,6 +17,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1103.0",
     "@supabase/supabase-js": "^2.110.2",
     "archiver": "^7.0.1",
     "dotenv": "^16.5.0",

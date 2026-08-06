@@ -1,5 +1,5 @@
 # E8-F1（sprints/sprint-27-dor.md）：每日自動備份，資料庫（public schema）＋
-# Storage 全量，打包上傳 Google Drive，並清除超過 14 天的舊備份。
+# Storage 全量，打包上傳 Cloudflare R2，並清除超過 14 天的舊備份。
 # UTC 18:00 = 台灣時間（UTC+8）凌晨 2:00。可於 GitHub Actions 頁面手動觸發
 # （workflow_dispatch），驗收與臨時補跑皆用此方式。
 name: 每日自動備份
@@ -108,11 +108,16 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: pnpm exec tsx scripts/backup/dump-storage.ts "storage-backup-${{ steps.date.outputs.today }}.zip"
 
-      - name: 上傳 Google Drive＋清除舊備份（AC-4／AC-5）
+      # 目的地由 Google Drive 改為 Cloudflare R2——正式站驗收時撞上 Google
+      # 平台限制（service account 對個人 Gmail Drive 沒有儲存配額），
+      # 詳見 09_KNOWLEDGE_BASE.md 目的地變更記錄。
+      - name: 上傳 Cloudflare R2＋清除舊備份（AC-4／AC-5）
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
-          pnpm exec tsx scripts/backup/upload-to-drive.ts \
+          pnpm exec tsx scripts/backup/upload-to-r2.ts \
             "db-backup-${{ steps.date.outputs.today }}.sql" \
             "storage-backup-${{ steps.date.outputs.today }}.zip"
