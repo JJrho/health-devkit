@@ -16,7 +16,9 @@ jobs:
     # 與正式站資料庫完全隔離，用完即棄（比照 KB-034 隔離環境驗證原則）。
     services:
       restore-target:
-        image: postgres:16
+        # 版本需與 Supabase 伺服器（17.6）一致，避免 pg_dump 輸出的 DDL 含新版
+        # 專屬語法而在舊版目標無法還原。
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
         ports:
@@ -40,8 +42,10 @@ jobs:
       - name: 安裝依賴
         run: pnpm install --frozen-lockfile
 
-      - name: 安裝 postgresql-client（pg_dump／psql）
-        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      # 不指定版本的 postgresql-client 在 GitHub Actions runner 上解析到 16.14，
+      # 比 Supabase 伺服器（17.6）舊，pg_dump 會直接拒絕執行，故明確指定 -17。
+      - name: 安裝 postgresql-client-17（pg_dump／psql）
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client-17
 
       - name: 設定日期標籤
         id: date
