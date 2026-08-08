@@ -1,6 +1,37 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 27（E8-F1：每日自動備份）已 commit＋push＋正式站 GitHub Actions 實測全數通過（2026-08-06），正式結案，KNOWN_ISSUES.md「Supabase 無自動備份」項移至已解決。Sprint 26（og:image 補件＋E2-F5）、Sprint 25（E7-F1：公開站五頁）皆已正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E2-F5／E8-F1 無關、不互相阻塞。
+> 目前狀態：Sprint 28（E7-F2：Hero v2.1 改版）實作＋本機驗證＋PO 親自視覺確認皆完成（2026-08-08），已 commit／push，正式結案。Sprint 27（E8-F1：每日自動備份）已正式結案。Sprint 26（og:image 補件＋E2-F5）、Sprint 25（E7-F1：公開站五頁）皆已正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E7-F2／E2-F5／E8-F1 無關、不互相阻塞。
+
+## Sprint 28 — E7-F2：Hero v2.1 改版（插圖區塊＋王醫師具名推薦） ✅ 實作＋本機驗證＋PO 親自視覺確認皆完成，正式結案
+
+- 期間：2026-08-08（單日完成）
+- DOR：✅ 通過（sprints/sprint-28-dor.md；A160/A161 由 PO 追認）
+- 目標：`16_HERO_V2_DESIGN.md` 定案的 Hero 頁視覺升級——新增希波克拉底雕像插畫與王醫師（王健宇醫師）具名推薦文字，明確不改動既有已上線的 H1／副標／CTA／三個信任卡片排版。
+
+### 設計要點
+- **插圖為獨立區塊，非滿版背景**（PO 明確指示）：900×1499 直向構圖畫面由上到下佈滿物件，沒有可疊文字的留白區域，若當背景疊字必然造成可讀性衝突。改用 `next/image` 顯示，維持原始比例（`h-auto`），寬度限制 `max-w-[560px]` 置中，手機版依 `w-full` 自然等比縮放，不需額外裁切邏輯。完整取捨理由見 KB-044。
+- **具名推薦文字逐字取自設計文件 §4**，不重寫不潤飾。
+- **王醫師本人已當面確認**（2026-08-08 早餐會議）設計文件 §5 三項內容全數同意：具名介紹方式、參與程度描述、不放真人照片改以雕像意象代表。
+- alt text 有意義描述雕像象徵意涵（「希波克拉底雕像，象徵醫者誓言與醫病信任」），非空白非檔名。
+- 色彩沿用既有 `#2563EB`，未引入設計文件 v1.0 草案曾提出的綠色系。
+
+### 實作中的技術發現
+`next/image` 在 jsdom 單元測試環境下的用戶端行為（devicePixelRatio 偵測）會在測試環境拆卸後才觸發「window is not defined」非同步例外——比照 Next.js 官方測試建議，於測試檔加上 `vi.mock("next/image", ...)` 改用純 `<img>` 通過測試環境（僅測試設定，非執行期程式碼變更）。過程也再度確認本專案既有慣例：Vitest 未啟用 `globals`，新增測試檔需手動 `afterEach(cleanup)`（比照 `deletion-guidance-notice.test.tsx`）。
+
+### 驗證結果
+- 本機瀏覽器驗證：文字內容逐字比對通過；桌面（560px 寬度容器）與手機（375px viewport）兩種寬度下，圖片渲染比例皆精確符合原始 900:1499（實測比值 1.6655 vs 理論值 1.6656），無變形無裁切，手機無水平溢出。
+- Next.js 圖片最佳化端點直接驗證：200／`image/jpeg`／約 142KB，載入速度合理。
+- axe-core 掃描首頁：零 Critical／Serious 違規；連帶重跑既有 7 頁無障礙抽查（首頁／註冊／登入／`/privacy`／`/scope`／`/about`／`/ai-principles`），皆維持零違規。
+- 全專案 213 個測試（+2：插圖 alt text、具名推薦文字逐字比對）／typecheck／lint／`pnpm build` 全綠。
+- **PO 親自視覺確認（2026-08-08）**：本次會話 Browser pane 工具本身未能取得像素級截圖（見下方部署驗證小節說明），改由 PO 直接開啟 Browser pane 肉眼確認——桌面版與手機縮窄寬度皆確認三項通過：圖片無變形、插圖為獨立區塊非背景疊字、具名推薦文字清楚可讀。**PO 確認可以 push。**
+
+### 部署驗證過程中的真實環境問題（與本輪程式碼變更無關）
+本機驗證期間發生兩個純屬本機開發環境的插曲，皆已排除，記錄供未來參考：
+1. **`rm -rf .next` 誤刪正在運行中 dev server 的快取**：驗證流程慣例在收尾時清 `.next`（KB-017），但這次清除時 Browser pane 的 `preview_start` dev server 仍在背景運行，導致該 server 的 manifest／webpack cache 檔案憑空消失，頁面回報 Internal Server Error（`ENOENT: routes-manifest.json` 等）。修法：停止該 preview server 再重新啟動（非重新 `pnpm dev` 手動指令），讓 Next.js 重新產生完整 `.next`。**這是 KB-017 既有教訓的變體：KB-017 講的是「build/start 診斷後」的殘留問題，這次是「dev server 仍在運行中被清快取」，兩者都指向同一條原則——`.next` 只要有任何 server process 正在使用中，就不可以在旁清除，需要先停止該 process。**
+2. **重啟 server 後，瀏覽器分頁殘留舊的 Hot Module Reload WebSocket 連線**：伺服器重啟後，PO 回報畫面在捲動時劇烈抖動、無法捲到底部；伺服器端 log 顯示乾淨（僅一次成功編譯，無異常），但瀏覽器 console 顯示大量歷史 `[Fast Refresh] rebuilding` 訊息，判斷是分頁仍持有指向舊（已終止）server 的 HMR 連線，反覆嘗試重新同步造成畫面持續變動。修法：對該分頁做強制重新載入（非單純導航），PO 確認畫面立即恢復正常、可正常捲動。**未來若同一會話內重啟過 preview server，建議養成習慣同步對開著的分頁做一次強制重新整理，不要假設分頁會自動偵測到新 server 並乾淨重連。**
+
+### 下一步
+已 push（見下方 commit 資訊）；下一步為等待 Zeabur 自動部署完成後於正式站再次確認。
 
 ## Sprint 27 — E8-F1：每日自動備份（資料庫＋Storage → Cloudflare R2） ✅ 實作＋正式站 workflow 實測全數通過，正式結案
 

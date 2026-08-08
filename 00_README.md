@@ -15,6 +15,7 @@
 6. ✅ **Sprint 25（E7-F1：公開站五頁，MVP 上線後首次功能性追加）已完成並正式站部署驗證通過（2026-08-05）**——取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面
 7. ✅ **Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已完成並正式站部署驗證通過（2026-08-05）**——部署驗證中發現並修正 `og:image` 缺 `metadataBase` 的真實缺陷（KB-040）；E2-F5 完整登入端到端驗證留待下次真實上傳流程時補做（KNOWN_ISSUES.md 第 7 項）
 8. ✅ **Sprint 27（E8-F1：每日自動備份，新增 Epic E8）已完成並正式站 GitHub Actions 實測全數通過（2026-08-06）**——每日自動備份資料庫＋Storage 至 Cloudflare R2，保留 14 天，每次執行皆自動驗證備份真的可還原。原設計走 Google Drive，正式站驗收撞上 service account 對個人帳號無儲存配額的平台限制，改用 R2（KB-042）。KNOWN_ISSUES.md「Supabase 無自動備份」項已移至已解決
+9. ✅ **Sprint 28（E7-F2：Hero v2.1 改版）已完成並 PO 親自視覺確認後 commit／push（2026-08-08）**——新增希波克拉底雕像插圖區塊（獨立呈現，非滿版背景，維持原始比例）與王醫師（王健宇醫師）具名推薦文字；王醫師本人已當面確認全部內容（KB-044）；既有已上線 H1／副標／CTA／三個信任卡片排版完全不動；本機 213 個測試全綠，axe 首頁零 Critical／Serious 違規；PO 於 Browser pane 桌面版與手機版皆親自確認排版無誤才 push
 
 ## 接手必讀順序
 02_CONSTITUTION → 03_SDD（含 §17 決議定案值）→ 05_BACKLOG → 13_ROADMAP → 06_DOR_DOD → 10_SYNC

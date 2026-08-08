@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { PublicFooter, PublicHeader } from "@/components/public/public-shell";
 
 /**
- * 公開站 Hero 首頁（E7-F1，取代過渡版）。文字內容逐字採用
- * 14_PUBLIC_SITE_COPY.md 頁 4/5，不重寫不潤飾。og:image 由 PO 提供
- * （public/og-image.jpg，1200x630，見 09_KNOWLEDGE_BASE.md KB-037 補記）。
+ * 公開站 Hero 首頁（E7-F1，取代過渡版；E7-F2 新增插圖與具名推薦區塊）。
+ * H1／副標／CTA／三個信任卡片文字逐字採用 14_PUBLIC_SITE_COPY.md 頁 4/5，
+ * 不重寫不潤飾，維持既有已上線排版不動。插圖與具名推薦文字定案於
+ * 16_HERO_V2_DESIGN.md（見 sprints/sprint-28-dor.md、KB-044）。
+ * og:image 由 PO 提供（public/og-image.jpg，1200x630，見 KB-037）。
  */
 export const metadata: Metadata = {
   title: "個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄",
@@ -82,6 +85,25 @@ export default function HomePage() {
             </li>
           ))}
         </ul>
+
+        {/*
+          E7-F2：獨立插圖區塊，非滿版背景、文字不疊圖。維持 900:1499 原始比例
+          （h-auto），寬度限制 500–600px 置中，手機版依 w-full 自然等比縮放。
+        */}
+        <Image
+          src="/hero-statue.webp"
+          alt="希波克拉底雕像，象徵醫者誓言與醫病信任"
+          width={900}
+          height={1499}
+          className="mt-10 h-auto w-full max-w-[560px]"
+        />
+
+        <div className="mt-6 max-w-xl space-y-3 text-lg text-slate-700">
+          <p>本平台由「獅子座的王醫師（王健宇醫師）」與團隊共同發起。</p>
+          <p>
+            王醫師長期於《年代 MUCh 台灣健康好生活》節目分享正確醫療觀念，我們相信——好的醫病關係，永遠建立在信任之上。
+          </p>
+        </div>
       </main>
       <PublicFooter />
     </div>
