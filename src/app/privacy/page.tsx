@@ -4,6 +4,9 @@ import { PageCta, PrimaryLink, PublicPage, SecondaryLink } from "@/components/pu
 /**
  * 公開站「隱私與資料安全」頁（E7-F1）。文字逐字採用
  * 14_PUBLIC_SITE_COPY.md 頁 1/5，不重寫不潤飾。
+ * 「檔案怎麼存放」段落補充一句原始檔保留與刪除揭露（2026-08-08 文案勘誤，
+ * 對應 E2-F5 刪除引導提示功能，逐字比對用 PO 指定文字，不重寫），
+ * 見 07_SPRINT_LOG.md 與 09_KNOWLEDGE_BASE.md KB-045。
  */
 export const metadata: Metadata = {
   title: "隱私與資料安全｜個人健康檢查管理平台",
@@ -27,6 +30,9 @@ export default function PrivacyPage() {
           <h2 className="mb-2 text-2xl font-bold text-slate-900">檔案怎麼存放</h2>
           <p>
             你上傳的健檢報告，預設不公開存放。要下載時，系統會產生一個限時的專屬連結，過期即失效，不會有一個誰都能打開的固定網址。
+          </p>
+          <p className="mt-4">
+            你確認完數值後，原始檔案（PDF 或照片本身）仍會保留在系統裡，方便之後核對或匯出；如果報告上印有你的姓名等資訊，這份原始檔案不會另外去識別化。如果你不需要保留，可以隨時到「健檔報告」頁面自行刪除，系統不會自動幫你刪。
           </p>
         </section>
 
