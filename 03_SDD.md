@@ -100,6 +100,8 @@
 
 **Hero v2.1 改版（E7-F2，Sprint 28，2026-08-08）**：設計定案於 `16_HERO_V2_DESIGN.md`（王醫師本人 2026-08-08 當面確認具名推薦全部內容）。`/` 頁在既有 H1／副標／CTA／三個信任卡片（維持不動）下方，新增兩個區塊：①插圖區塊——希波克拉底雕像插畫（`public/hero-statue.webp`，900×1499 直向構圖，PO 提供），獨立置中呈現、寬度限制 500–600px、維持原始比例不裁切不拉伸，非滿版背景、文字不疊圖；②具名推薦文字——「獅子座的王醫師（王健宇醫師）」與團隊共同發起的說明文字，逐字取自設計文件 §4。色彩沿用既有 `#2563EB`，未引入設計文件 v1.0 草案曾提出的綠色系（sprints/sprint-28-dor.md、KB-044）。
 
+**品牌命名層「偵醫探心」（2026-08-10，非獨立 Feature）**：PO 決定為平台加上品牌名稱前綴，三處純文字替換——公開站共用頁首（`PublicHeader()`，五頁皆受影響）、`/` 頁 `metadata.title`／`metadata.openGraph.title`、根 `layout.tsx` 之 `metadata.title`。範圍明確限縮為文字層，不含網域與視覺識別（Logo／favicon 等留待未來另開 Feature），不影響本節既有畫面結構與色彩規範。見 09_KNOWLEDGE_BASE.md KB-046。
+
 **E2-F5 原始掃描檔刪除引導提示（Sprint 26，2026-08-05，MVP 上線後追加）**：`/projects/[id]/documents` 頁的 `DocumentRow` 於 `document.status === "confirmed"` 時新增提示文字＋可聚焦既有刪除按鈕的連結，不改動 `deleteDocument()` 既有邏輯，見 sprints/sprint-26-dor.md、KB-038。
 
 ## 6. 資料欄位
