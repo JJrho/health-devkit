@@ -1,6 +1,6 @@
 # Sprint Log — 個人健康檢查管理平台
 
-> 目前狀態：Sprint 28（E7-F2：Hero v2.1 改版）實作＋本機驗證＋PO 親自視覺確認皆完成（2026-08-08），已 commit／push，正式結案。Sprint 27（E8-F1：每日自動備份）已正式結案。Sprint 26（og:image 補件＋E2-F5）、Sprint 25（E7-F1：公開站五頁）皆已正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E7-F2／E2-F5／E8-F1 無關、不互相阻塞。
+> 目前狀態：品牌命名層「偵醫探心」文字更新（2026-08-10）已 commit／push＋正式站部署驗證通過，非獨立 Feature（KB-046）。Sprint 28（E7-F2：Hero v2.1 改版）實作＋本機驗證＋PO 親自視覺確認皆完成（2026-08-08），已 commit／push，正式結案。Sprint 27（E8-F1：每日自動備份）已正式結案。Sprint 26（og:image 補件＋E2-F5）、Sprint 25（E7-F1：公開站五頁）皆已正式結案。MVP 原始範圍（Sprint 1–24，E1–E6，20 個 Feature）已於 2026-07-22 全數完成並上線，僅剩台灣個資與醫療法律審查（外部人工事項）為 MVP 交付前唯一待辦，與 E7-F1／E7-F2／E2-F5／E8-F1／品牌命名皆無關、不互相阻塞。
 
 ## Sprint 28 — E7-F2：Hero v2.1 改版（插圖區塊＋王醫師具名推薦） ✅ 實作＋本機驗證＋PO 親自視覺確認皆完成，正式結案
 
@@ -34,6 +34,8 @@
 已 push（見下方 commit 資訊）；下一步為等待 Zeabur 自動部署完成後於正式站再次確認。
 
 **收尾附記（2026-08-08，內測前盤點發現）**：`/privacy` 頁「檔案怎麼存放」段落文案定案於 Sprint 25，落後於 Sprint 26（E2-F5）才上線的刪除引導提示功能，內測前補上一句誠實揭露（原始檔會保留、不會自動去識別化、可自行刪除）。純文案勘誤，不開新 Feature／不走完整 DOR，比照小型文字修正處理；完整落差成因與修正理由見 KB-045。
+
+**收尾附記（2026-08-10，品牌命名層「偵醫探心」）**：PO 決定為平台加上品牌名稱前綴，三處純文字替換——公開站共用頁首（`PublicHeader()`，五頁皆受影響）、`/` 頁 `metadata.title`／`metadata.openGraph.title`、根 `layout.tsx` 之 `metadata.title`。範圍明確限縮為文字層，不含網域與視覺識別（Logo／favicon 等留待未來另開 Feature，PO 明確指示不自行擴大範圍）。比照 `/privacy` 文案勘誤先例，不開新 Feature／不走完整 DOR。本機 typecheck／lint／213 個測試／7 個 axe 無障礙抽查全綠（過程中 `pg-queue-adapter.test.ts` 出現一次孤立測試失敗，單獨重跑與全套重跑皆綠，判斷為平行執行時共用佇列資料表的既有已知類型瑣事，與本次變更無關）；正式站五頁頁首逐一確認品牌名稱正確顯示，opengraph.xyz 掃描確認 OG 分享卡片標題正確反映新名稱。已 commit（`3be54ea`）＋push＋正式站部署驗證通過，詳見 09_KNOWLEDGE_BASE.md KB-046。
 
 ## Sprint 27 — E8-F1：每日自動備份（資料庫＋Storage → Cloudflare R2） ✅ 實作＋正式站 workflow 實測全數通過，正式結案
 
