@@ -92,6 +92,8 @@
 | E7-F1 | 公開站五頁（Hero／說明／能做不能做／隱私／來源與AI原則） | §5、上游 §6.1 | 無 | 無 | 🟢 | 否 | 1 | ⚪ |
 | E7-F2 | Hero v2.1 改版（插圖區塊＋王醫師具名推薦） | §5 | E7-F1 | 王醫師本人具名確認（PO 已完成，2026-08-08） | 🟢 | 否 | 1 | ⚪ |
 
+**品牌命名層「偵醫探心」（2026-08-10，非獨立 Feature，不佔上表列）**：PO 決定為平台加上品牌名稱前綴，三處純文字替換（頁首、首頁 title/openGraph.title、根 layout title），範圍明確限縮為文字層，不含網域與視覺識別（Logo／favicon 等留待未來另開 Feature）。比照 E7-F1「/privacy 文案勘誤」先例，不開新 Feature／不走完整 DOR，已 commit（`3be54ea`）並正式站驗證通過，見 09_KNOWLEDGE_BASE.md KB-046。
+
 ### E8：維運與備份自動化（MVP 上線後追加）
 
 > 對應 KNOWN_ISSUES.md 第 2 項（Supabase 免費方案無自動備份、無 PITR，Sprint 24／KB-035 查證發現）。純 CI／ops 層級 Feature，不觸碰 app 執行期程式碼或資料表結構。
