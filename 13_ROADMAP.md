@@ -1,6 +1,6 @@
 # 專案地圖 Roadmap — 個人健康檢查管理平台
 
-> 最後更新：2026-08-08（Sprint 28／E7-F2 Hero v2.1 改版實作＋本機驗證＋PO 親自視覺確認皆完成，已 commit／push，正式結案）
+> 最後更新：2026-08-10（品牌命名層「偵醫探心」文字更新已 commit／push＋正式站驗證通過）
 
 ## 1. 一句話目標
 讓 50–65 歲使用者把多年健檢資料變成可追溯的趨勢與可停止的行動計畫。
@@ -21,7 +21,9 @@
 整體進度：**MVP 原始範圍全案 24 個 Sprint、20 個 Feature 全數完成並正式站部署驗證通過**（粗估 17，精估 24，差異說明見 05_BACKLOG）；**E7-F1／E2-F5／E8-F1 皆為上線後追加，不計入 MVP 24 Sprint 分母**。E2 表另新增 E2-F5（原始掃描檔刪除引導提示，Sprint 26，2026-08-05，✅ 已完成，非原始 20 Feature 分母）。
 
 ## 3. 目前所在位置
-- 最近完成：**Sprint 28（E7-F2：Hero v2.1 改版）已 commit／push，正式結案（2026-08-08）**——新增希波克拉底雕像插圖區塊（獨立呈現，非滿版背景，維持 900:1499 原始比例，寬度限制 500–600px 置中）與王醫師（王健宇醫師）具名推薦文字，逐字取自 `16_HERO_V2_DESIGN.md` §4；既有已上線 H1／副標／CTA／三個信任卡片排版完全不動。王醫師本人已於 2026-08-08 當面確認設計文件全部內容。本機 213 個測試（+2）全綠，axe 首頁與既有 7 頁無障礙抽查零違規。**PO 親自於 Browser pane 視覺確認桌面版與手機版皆通過**（圖片無變形、獨立區塊非背景疊字、文字清楚可讀）後才 push。過程中發現並排除兩個純屬本機開發環境的插曲（`rm -rf .next` 誤刪運行中 server 快取、重啟後分頁殘留舊 HMR 連線造成捲動抖動），與程式碼本身無關，詳見 07_SPRINT_LOG。詳見 03_SDD §5、sprints/sprint-28-dor.md、KB-044
+- 最近完成：**品牌命名層「偵醫探心」已 commit（`3be54ea`）＋push＋正式站部署驗證通過（2026-08-10）**——PO 決定為平台加上品牌名稱前綴，三處純文字替換（公開站共用頁首、`/` 頁 `metadata.title`／`metadata.openGraph.title`、根 `layout.tsx` `metadata.title`），範圍明確限縮為文字層，不含網域與視覺識別。本機 typecheck／lint／213 個測試／7 個 axe 抽查全綠；正式站五頁頁首逐一確認、opengraph.xyz 掃描確認 OG 卡片標題正確。詳見 03_SDD §5、09_KNOWLEDGE_BASE.md KB-046
+- 上一個里程碑：**E7-F1 收尾：`/privacy` 頁文案勘誤已 commit（`63dad7a`）＋push＋正式站部署驗證通過（2026-08-08）**——內測前盤點發現 `/privacy` 頁文案落後於 Sprint 26 才上線的 E2-F5 刪除引導提示功能，補上一句誠實揭露（PO 指定逐字文字）。純文案修正，不開新 Feature／不走完整 DOR。詳見 09_KNOWLEDGE_BASE.md KB-045
+- 上一個里程碑：**Sprint 28（E7-F2：Hero v2.1 改版）已 commit（`aac4298`）＋push，正式結案（2026-08-08）**——新增希波克拉底雕像插圖區塊（獨立呈現，非滿版背景，維持 900:1499 原始比例，寬度限制 500–600px 置中）與王醫師（王健宇醫師）具名推薦文字，逐字取自 `16_HERO_V2_DESIGN.md` §4；既有已上線 H1／副標／CTA／三個信任卡片排版完全不動。王醫師本人已於 2026-08-08 當面確認設計文件全部內容。本機 213 個測試（+2）全綠，axe 首頁與既有 7 頁無障礙抽查零違規。**PO 親自於 Browser pane 視覺確認桌面版與手機版皆通過**（圖片無變形、獨立區塊非背景疊字、文字清楚可讀）後才 push。過程中發現並排除兩個純屬本機開發環境的插曲（`rm -rf .next` 誤刪運行中 server 快取、重啟後分頁殘留舊 HMR 連線造成捲動抖動），與程式碼本身無關，詳見 07_SPRINT_LOG。詳見 03_SDD §5、sprints/sprint-28-dor.md、KB-044
 - 上一個里程碑：**Sprint 27（E8-F1：每日自動備份）已 commit＋push＋正式站 GitHub Actions `workflow_dispatch` 實測全數通過，正式結案（2026-08-06）**——每日（UTC 18:00＝台灣凌晨 2 點）自動備份資料庫（`public` schema）＋Storage 全量物件上傳 Cloudflare R2，保留 14 天，且每次執行皆自動驗證備份真的可還原（超出 PO 原始「至少測一次」要求，A156）。**實作後變更**：原設計走 Google Drive，正式站驗收撞上 service account 對個人 Gmail Drive 無儲存配額的平台限制（`HTTP 403 storageQuotaExceeded`，Google 官方僅提供 Workspace 專屬替代方案），改用 Cloudflare R2（A158，KB-042）。資料庫還原驗證除錯踩過五層真實環境問題（PGDG 套件庫、pg_dump 版本、schema 衝突、擴充套件注入順序、search_path 清空），完整記錄見 KB-041。正式站實測：R2 bucket 確認出現 `db-backup-2026-08-06.sql`（407231 bytes）與 `storage-backup-2026-08-06.zip`（8394 bytes）兩個檔案。KNOWN_ISSUES.md「Supabase 無自動備份」項移至已解決；額外發現 Supabase Legacy API Keys 頁面位置易被忽略（KB-043），列入觀察項。詳見 03_SDD §15、sprints/sprint-27-dor.md、07_SPRINT_LOG
 - 上一個里程碑：**Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋metadataBase 修正）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——PO 提供 `og-image.jpg` 補上 OG 卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現既有 `deleteDocument()`（E2-F1）缺乏使用者引導，補提示文案不改動既有刪除／匯出邏輯（不自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。**正式站部署驗證發現並修正真實缺陷**：`og:image` 缺 `metadataBase` 導致解析成容器內部位址（`localhost:8080`）而非正式站網域，外部服務完全無法抓取，本機驗證階段未現形（KB-040）；修正後本機與正式站皆確認正確解析為完整對外網址。E2-F5 完整登入端到端驗證留待下次真實上傳流程時補做（KNOWN_ISSUES.md 第 8 項）。詳見 03_SDD §15、sprints/sprint-26-dor.md、07_SPRINT_LOG
 - 上一個里程碑：**Sprint 25（E7-F1：公開站五頁）已 commit（`c8d7eb0`）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——MVP 上線後首次功能性追加，取代過渡版 Hero＋補齊 `/privacy`／`/scope`／`/about`／`/ai-principles` 四個上游 §6.1 公開頁面；正式站真實網域驗證五頁內容與 OG meta 正確，第三方 OG 除錯工具確認分享卡片無截斷。詳見 sprints/sprint-25-dor.md、KB-037
@@ -29,10 +31,9 @@
 - 下一個：無下一個 Sprint（開發面已全數完成）；等待台灣個資與醫療法律審查完成後即可正式對外交付
 
 ## 4. 接下來三步
-1. 待 PO 確認 Sprint 28（E7-F2）是否 commit／push（會觸發 Zeabur 自動部署）；部署後建議補做一次真實瀏覽器視覺截圖確認（本輪 Browser pane 未能顯示畫面）
-2. 台灣個資與醫療法律審查（外部人工事項，上線硬門檻，見 KNOWN_ISSUES.md，唯一剩餘 MVP 阻塞待辦，與 E7-F1／E7-F2／E2-F5／E8-F1 無關、不互相阻塞；KB-039 給王醫師的技術現況說明可作為送審參考）
-3. E2-F5 完整登入端到端驗證（下次真實使用者走過上傳流程時順手確認，KNOWN_ISSUES.md 第 7 項）
-4. 審查通過後正式對外交付 MVP
+1. 台灣個資與醫療法律審查（外部人工事項，上線硬門檻，見 KNOWN_ISSUES.md，唯一剩餘 MVP 阻塞待辦，與 E7-F1／E7-F2／E2-F5／E8-F1／品牌命名皆無關、不互相阻塞；KB-039 給王醫師的技術現況說明可作為送審參考）
+2. E2-F5 完整登入端到端驗證（下次真實使用者走過上傳流程時順手確認，KNOWN_ISSUES.md 第 7 項）
+3. 審查通過後正式對外交付 MVP
 
 **OCR 排程最終拍板（2026-07-16）**：掃描 OCR 啟用（C4 flag）已移出 05_BACKLOG「Phase 2+」大雜燴。**PoC 完成（KB-023，86% 真實文件無文字層）後，PO 決定維持原計畫，OCR 仍排在 E2-F3 之後，不提前插隊**——優先把文字型管線＋手動輸入 fallback 做穩、資料模型穩定後再接 OCR，避免整合成本與風險。屆時另立 DOR，需先決定 OCR 供應商（自架 vs. 雲端 API，涉及成本與健檢文件送第三方的隱私考量），並將手機拍照特有挑戰（透視變形、光線、解析度、部分入鏡）納入設計考量，不只是掃描器品質輸入。
 
