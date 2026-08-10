@@ -1,6 +1,12 @@
 # SYNC 交接文件
 
 ## 1. 專案目前狀態
+**品牌命名層「偵醫探心」已 commit（`3be54ea`）＋push＋正式站部署驗證通過（2026-08-10）**——PO 決定為平台加上品牌名稱前綴，三處純文字替換：`src/components/public/public-shell.tsx`（`PublicHeader()`，五個公開頁面共用頁首）、`src/app/page.tsx`（`metadata.title`／`metadata.openGraph.title`）、`src/app/layout.tsx`（根層級 `metadata.title`）。範圍明確限縮為文字層，不含網域與視覺識別（Logo／favicon 等留待未來另開 Feature）。本機 typecheck／lint／213 個測試／7 個 axe 無障礙抽查全綠（過程中 `pg-queue-adapter.test.ts` 出現一次孤立測試失敗，單獨重跑與全套重跑皆綠，判斷為平行執行時共用佇列資料表的既有已知類型瑣事，與本次文字變更無關）；正式站五頁頁首逐一確認品牌名稱正確顯示，opengraph.xyz 掃描確認 OG 分享卡片標題正確反映新名稱。詳見 09_KNOWLEDGE_BASE.md KB-046。
+
+**E7-F1 收尾：`/privacy` 頁文案勘誤已 commit（`63dad7a`）＋push＋正式站部署驗證通過（2026-08-08）**——內測前盤點發現 `/privacy` 頁「檔案怎麼存放」段落定案於 Sprint 25，落後於 Sprint 26 才上線的 E2-F5 刪除引導提示功能，補上一句誠實揭露（PO 指定逐字文字，不重寫）。純文案修正，不開新 Feature／不走完整 DOR，比照小型文字修正處理，但仍於 KB-045 記錄落差成因與修正理由。本機驗證與正式站文字逐字比對皆通過。
+
+**Sprint 28（E7-F2：Hero v2.1 改版）已完成並 PO 親自視覺確認後 commit（`aac4298`）＋push（2026-08-08）**——首頁新增希波克拉底雕像插圖區塊（獨立呈現，非滿版背景，維持原始比例）與王醫師（王健宇醫師）具名推薦文字，設計定案於 `16_HERO_V2_DESIGN.md`，王醫師本人已當面確認全部內容；既有已上線 H1／副標／CTA／三個信任卡片排版完全不動。過程排除兩個純屬本機開發環境的插曲（`.next` 快取誤刪導致 Internal Server Error、重啟後分頁殘留舊 HMR 連線造成捲動抖動），與程式碼本身無關。213 個測試全綠，axe 首頁零 Critical／Serious 違規；PO 於 Browser pane 桌面版與手機版皆親自確認排版無誤才 push。詳見 KB-044。
+
 **Sprint 27（E8-F1：每日自動備份，新增 Epic E8）已 commit＋push＋正式站 GitHub Actions `workflow_dispatch` 實測全數通過，正式結案（2026-08-06）**——每日（UTC 18:00＝台灣凌晨 2 點）自動備份資料庫（`public` schema）＋Storage 全量物件，上傳 Cloudflare R2，保留 14 天，且**每次執行皆自動驗證備份真的可還原**（GitHub Actions 一次性 postgres service container 還原＋比對表數，超出 PO 原始「至少測一次」要求，A156）。**實作後變更**：原設計走 Google Drive（帳號層級設定已完成：service account、Drive API、Drive 資料夾共用），正式站驗收時撞上 Google 平台限制——service account 對個人 Gmail Drive 沒有儲存配額（`HTTP 403 storageQuotaExceeded`，官方僅提供 Workspace 專屬的 Shared Drives／OAuth domain-wide delegation 兩條路），非程式碼問題，PO 決定改用 Cloudflare R2（S3 相容 API，A158，KB-042），改用官方 `@aws-sdk/client-s3` 套件（A159）。資料庫還原驗證除錯過程踩過五層真實環境問題（PGDG 套件庫、pg_dump 版本解析、schema 衝突、擴充套件注入順序、search_path 清空），完整記錄見 KB-041。正式站實測：R2 bucket 確認出現 `db-backup-2026-08-06.sql`（407231 bytes）與 `storage-backup-2026-08-06.zip`（8394 bytes）。KNOWN_ISSUES.md「Supabase 無自動備份」項已移至已解決；額外發現 Supabase Legacy API Keys 頁面位置容易被忽略（KB-043），列入觀察項（非急迫）。詳見 07_SPRINT_LOG、sprints/sprint-27-dor.md。
 
 **Sprint 26（og:image 補件＋E2-F5：原始掃描檔刪除引導提示）已 commit（`f32945f`＋metadataBase 修正）＋push＋正式站部署驗證通過，正式結案（2026-08-05）**——PO 提供 `og-image.jpg` 補上 OG 分享卡片圖片（KB-037 已解決）；與王醫師溝通產品個資疑慮時發現 `deleteDocument()`（E2-F1 既有功能）缺乏使用者引導，新增 E2-F5 補提示文案（不做自動刪除，理由見 KB-038），並整理技術現況說明供轉述王醫師（KB-039：結構化表無 PII 欄位、A28 排除規則、14% 覆蓋率限制、原始檔未去識別化）。全專案 211 個測試（+2）／typecheck／lint／build 全綠。**正式站部署驗證發現並修正真實缺陷**：`og:image` 缺 `metadataBase` 解析成容器內部位址而非正式站網域，外部服務完全抓不到圖片，本機驗證階段未現形（KB-040），修正後本機與正式站皆確認正確。詳見 07_SPRINT_LOG、sprints/sprint-26-dor.md。
@@ -13,6 +19,12 @@
 開發包 v1.0.0（RATIFIED 2026-07-11）；上游規格見 `archive/upstream_spec/`（2026-07-17 補齊，KB-027）；技術選型 v1.0.0；方法論 v1.2.0。
 
 ## 3. 最近完成
+**品牌命名層「偵醫探心」（2026-08-10，commit `3be54ea`）**：三處純文字替換（頁首、首頁 title/openGraph.title、根 layout title），範圍不含網域與視覺識別，詳見上方§1與 KB-046。
+
+**E7-F1 收尾：`/privacy` 頁文案勘誤（2026-08-08，commit `63dad7a`）**：補上原始檔保留與刪除揭露一句，詳見上方§1與 KB-045。
+
+**Sprint 28（E7-F2：Hero v2.1 改版，2026-08-08，commit `aac4298`）已完成並 PO 親自視覺確認後 push**：詳見上方§1與 KB-044。
+
 **知識庫真實內容擴充第六批（2026-07-24，非獨立 Sprint，延續 A55）**：PO 提供王健宇醫師書籍 PART4 剩餘 4 個章節，已比照既定流程轉錄＋seed（皆 `status=draft`），`knowledge_sources` 由 26 筆增至 30/38 章節、`knowledge_chunks` 共 749 筆（+60），**PART4 全 8 章節至此全數轉錄完成**；純內容補充，未涉及 schema／服務層變更，本機 seed 腳本執行後與正式站共用資料庫同步生效，208 個測試／typecheck／lint 全綠，詳見 07_SPRINT_LOG。
 
 **知識庫真實內容擴充第五批（2026-07-24，非獨立 Sprint，延續 A55）**：PO 提供王健宇醫師書籍 PART4（最常發生的醫藥問題 Q&A）首 4 個章節，已比照既定流程轉錄＋seed（皆 `status=draft`），`knowledge_sources` 由 22 筆增至 26/38 章節、`knowledge_chunks` 共 689 筆（+73）；純內容補充，未涉及 schema／服務層變更，本機 seed 腳本執行後與正式站共用資料庫同步生效，208 個測試／typecheck／lint 全綠，詳見 07_SPRINT_LOG。
