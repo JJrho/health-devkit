@@ -10,7 +10,7 @@ import { RecoveryHashRouter } from "@/components/auth/recovery-hash-router";
  */
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://health-devkit.zeabur.app"),
-  title: "個人健康檢查管理平台",
+  title: "偵醫探心｜個人健康檢查管理平台",
   description: "把多年健檢資料整理成可追溯的趨勢與可停止的行動計畫",
 };
 

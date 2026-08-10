@@ -11,11 +11,11 @@ import { PublicFooter, PublicHeader } from "@/components/public/public-shell";
  * og:image 由 PO 提供（public/og-image.jpg，1200x630，見 KB-037）。
  */
 export const metadata: Metadata = {
-  title: "個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄",
+  title: "偵醫探心｜把健檢報告變成看得懂的健康紀錄",
   description:
     "整理歷年健檢資料、追蹤長期趨勢、建立可以安心調整的健康行動計畫。不診斷、不開藥、不用命理。",
   openGraph: {
-    title: "個人健康檢查管理平台｜把健檢報告變成看得懂的健康紀錄",
+    title: "偵醫探心｜把健檢報告變成看得懂的健康紀錄",
     description:
       "整理歷年健檢資料、追蹤長期趨勢、建立可以安心調整的健康行動計畫。不診斷、不開藥、不用命理。",
     images: ["/og-image.jpg"],

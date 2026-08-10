@@ -20,7 +20,7 @@ export function PublicHeader() {
           href="/"
           className="text-lg font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-200"
         >
-          個人健康檢查管理平台
+          偵醫探心｜個人健康檢查管理平台
         </Link>
       </div>
     </header>
